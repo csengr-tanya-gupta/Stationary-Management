@@ -79,18 +79,18 @@ class InventoryServiceTest {
     }
 
     @Test
-    @DisplayName("Should retrieve all items with pagination")
-    void testGetAllItemsSuccess() {
-        Pageable pageable = PageRequest.of(0, 20);
-        Page<StationeryItem> page = new PageImpl<>(Arrays.asList(testItem), pageable, 1);
-        when(inventoryRepository.findAll(pageable)).thenReturn(page);
+@DisplayName("Should retrieve all items with pagination")
+void testGetAllItemsSuccess() {
+    Pageable pageable = PageRequest.of(0, 20, Sort.by("name").ascending());
+    Page<StationeryItem> page = new PageImpl<>(Arrays.asList(testItem), pageable, 1);
+    when(inventoryRepository.findAll(pageable)).thenReturn(page);
 
-        Page<StationeryItemResponse> response = inventoryService.getAllItems(0, 20, "name");
+    Page<StationeryItemResponse> response = inventoryService.getAllItems(0, 20, "name");
 
-        assertNotNull(response);
-        assertEquals(1, response.getTotalElements());
-        verify(inventoryRepository).findAll(pageable);
-    }
+    assertNotNull(response);
+    assertEquals(1, response.getTotalElements());
+    verify(inventoryRepository).findAll(pageable);
+}
 
     @Test
     @DisplayName("Should retrieve item by ID successfully")
@@ -114,18 +114,18 @@ class InventoryServiceTest {
     }
 
     @Test
-    @DisplayName("Should retrieve items by category with pagination")
-    void testGetItemsByCategorySuccess() {
-        Pageable pageable = PageRequest.of(0, 20);
-        Page<StationeryItem> page = new PageImpl<>(Arrays.asList(testItem), pageable, 1);
-        when(inventoryRepository.findByCategory("BOOKS", pageable)).thenReturn(page);
+@DisplayName("Should retrieve items by category with pagination")
+void testGetItemsByCategorySuccess() {
+    Pageable pageable = PageRequest.of(0, 20, Sort.by("name").ascending());
+    Page<StationeryItem> page = new PageImpl<>(Arrays.asList(testItem), pageable, 1);
+    when(inventoryRepository.findByCategory("BOOKS", pageable)).thenReturn(page);
 
-        Page<StationeryItemResponse> response = inventoryService.getItemsByCategory("Books", 0, 20);
+    Page<StationeryItemResponse> response = inventoryService.getItemsByCategory("Books", 0, 20);
 
-        assertNotNull(response);
-        assertEquals(1, response.getTotalElements());
-        verify(inventoryRepository).findByCategory("Books", pageable);
-    }
+    assertNotNull(response);
+    assertEquals(1, response.getTotalElements());
+    verify(inventoryRepository).findByCategory("BOOKS", pageable);
+}
 
     @Test
     @DisplayName("Should update an existing item successfully")
