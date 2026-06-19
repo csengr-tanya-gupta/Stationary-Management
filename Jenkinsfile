@@ -31,20 +31,8 @@ pipeline {
        stage('Build Frontend') {
     steps {
         dir('frontend') {
-            sh '''
-                export PATH=/home/tanya/.nvm/versions/node/v22.15.0/bin:$PATH
-
-                echo "NODE:"
-                which node
-                node -v
-
-                echo "NPM:"
-                which npm
-                npm -v
-
-                npm ci
-                npm run build
-            '''
+            sh 'npm ci'
+            sh 'npm run build'
         }
     }
 }
