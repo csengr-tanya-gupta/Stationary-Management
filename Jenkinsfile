@@ -1,69 +1,58 @@
 pipeline {
-agent any
+    agent any
 
-```
-options {
-    timestamps()
-}
-
-stages {
-
-    stage('Checkout') {
-        steps {
-            echo 'Pulling latest code from GitHub...'
-            checkout scm
-        }
+    options {
+        timestamps()
     }
 
-    stage('Build Backend') {
-        steps {
-            echo 'Building all Spring Boot services...'
-            sh 'mvn clean package -DskipTests'
+    stages {
+
+        stage('Checkout') {
+            steps {
+                echo 'Pulling latest code from GitHub...'
+                checkout scm
+            }
         }
-    }
 
-    stage('Run Tests') {
-        steps {
-            echo 'Running unit tests...'
-            sh 'mvn test'
+        stage('Build Backend') {
+            steps {
+                echo 'Building all Spring Boot services...'
+                sh 'mvn clean package -DskipTests'
+            }
         }
-    }
 
-    stage('Build Frontend') {
-        steps {
-            dir('frontend') {
-                echo 'Installing frontend dependencies...'
-                sh 'npm ci'
+        stage('Run Tests') {
+            steps {
+                echo 'Running unit tests...'
+                sh 'mvn test'
+            }
+        }
 
-                echo 'Building React frontend...'
-                sh 'npm run build'
+        stage('Build Frontend') {
+            steps {
+                dir('frontend') {
+                    sh 'npm ci'
+                    sh 'npm run build'
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                sh 'docker compose down --remove-orphans'
+                sh 'docker compose up -d --build'
+                sh 'docker compose ps'
             }
         }
     }
 
-    stage('Deploy') {
-        steps {
-            echo 'Stopping old containers...'
-            sh 'docker compose down --remove-orphans'
+    post {
+        success {
+            echo 'Stationery Management System deployed successfully.'
+        }
 
-            echo 'Building and starting containers...'
-            sh 'docker compose up -d --build'
-
-            echo 'Checking running containers...'
-            sh 'docker compose ps'
+        failure {
+            echo 'Deployment failed. Check Jenkins logs.'
         }
     }
-}
-
-post {
-    success {
-        echo 'Stationery Management System deployed successfully.'
-    }
-
-    failure {
-        echo 'Deployment failed. Check Jenkins logs.'
-    }
-}
-```
-
 }
