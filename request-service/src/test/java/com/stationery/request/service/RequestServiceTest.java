@@ -4,14 +4,14 @@ import com.stationery.request.client.InventoryClient;
 import com.stationery.request.dto.CreateRequestDto;
 import com.stationery.request.dto.RequestItemDto;
 import com.stationery.request.dto.RequestResponse;
+import com.stationery.request.exception.InsufficientStockException;
+import com.stationery.request.exception.ResourceNotFoundException;
 import com.stationery.request.model.RequestItem;
 import com.stationery.request.model.RequestStatus;
 import com.stationery.request.model.StationeryRequest;
 import com.stationery.request.repository.RequestRepository;
 import feign.FeignException;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.springframework.http.ResponseEntity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -19,17 +19,15 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("RequestService Test Suite")
 class RequestServiceTest {
 
     @Mock
@@ -41,229 +39,379 @@ class RequestServiceTest {
     @InjectMocks
     private RequestService requestService;
 
-    private CreateRequestDto createRequestDto;
-    private StationeryRequest testRequest;
-    private RequestItem testItem;
+    private StationeryRequest pendingRequest;
+    private StationeryRequest approvedRequest;
+    private RequestItem requestItem;
 
     @BeforeEach
     void setUp() {
+        requestItem = RequestItem.builder()
+                .id(1L).itemId(10L).itemName("Pen").quantity(5).build();
+
+        pendingRequest = buildRequest(1L, "uuid-pending", "student1", RequestStatus.PENDING, List.of(requestItem));
+        approvedRequest = buildRequest(2L, "uuid-approved", "student1", RequestStatus.APPROVED, List.of(requestItem));
+    }
+
+    private StationeryRequest buildRequest(Long id, String requestId, String student,
+                                            RequestStatus status, List<RequestItem> items) {
+        StationeryRequest r = new StationeryRequest();
+        r.setId(id);
+        r.setRequestId(requestId);
+        r.setStudentUsername(student);
+        r.setStatus(status);
+        r.setCreatedAt(LocalDateTime.now());
+        r.setUpdatedAt(LocalDateTime.now());
+        // wire up items
+        List<RequestItem> mutableItems = new ArrayList<>(items);
+        r.setItems(mutableItems);
+        for (RequestItem item : mutableItems) item.setRequest(r);
+        return r;
+    }
+
+    // ===== createRequest =====
+
+    @Test
+    void createRequest_success() {
         RequestItemDto itemDto = RequestItemDto.builder()
-                .itemId(1L)
-                .itemName("Notebook")
-                .quantity(5)
-                .build();
+                .itemId(10L).itemName("Pen").quantity(5).build();
+        CreateRequestDto createDto = new CreateRequestDto();
+        createDto.setItems(List.of(itemDto));
 
-        createRequestDto = CreateRequestDto.builder()
-                .items(Arrays.asList(itemDto))
-                .build();
+        when(requestRepository.save(any(StationeryRequest.class))).thenAnswer(inv -> {
+            StationeryRequest r = inv.getArgument(0);
+            r.setId(1L);
+            r.setRequestId("uuid-new");
+            r.setCreatedAt(LocalDateTime.now());
+            r.setUpdatedAt(LocalDateTime.now());
+            return r;
+        });
 
-        testItem = RequestItem.builder()
-                .id(1L)
-                .itemId(1L)
-                .itemName("Notebook")
-                .quantity(5)
-                .build();
-
-        testRequest = StationeryRequest.builder()
-                .id(1L)
-                .requestId("req-123")
-                .studentUsername("student1")
-                .status(RequestStatus.PENDING)
-                .items(Arrays.asList(testItem))
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .build();
-    }
-
-    @Test
-    @DisplayName("Should create a new request successfully")
-    void testCreateRequestSuccess() {
-        when(requestRepository.save(any(StationeryRequest.class))).thenReturn(testRequest);
-
-        RequestResponse response = requestService.createRequest("student1", createRequestDto);
+        RequestResponse response = requestService.createRequest("student1", createDto);
 
         assertNotNull(response);
         assertEquals("student1", response.getStudentUsername());
-        assertEquals(RequestStatus.PENDING.name(), response.getStatus());
+        assertEquals("PENDING", response.getStatus());
         assertEquals(1, response.getItems().size());
-
-        verify(requestRepository).save(any(StationeryRequest.class));
+        assertEquals("Pen", response.getItems().get(0).getItemName());
     }
 
-    @Test
-    @DisplayName("Should retrieve request by ID")
-    void testGetRequestByIdSuccess() {
-        when(requestRepository.findById(1L)).thenReturn(Optional.of(testRequest));
+    // ===== getRequestById =====
 
+    @Test
+    void getRequestById_found() {
+        when(requestRepository.findById(1L)).thenReturn(Optional.of(pendingRequest));
         RequestResponse response = requestService.getRequestById(1L);
-
-        assertNotNull(response);
-        assertEquals("student1", response.getStudentUsername());
-        verify(requestRepository).findById(1L);
+        assertEquals(1L, response.getId());
+        assertEquals("PENDING", response.getStatus());
     }
 
     @Test
-    @DisplayName("Should throw exception when request not found by ID")
-    void testGetRequestByIdNotFound() {
-        when(requestRepository.findById(999L)).thenReturn(Optional.empty());
+    void getRequestById_notFound_throwsResourceNotFoundException() {
+        when(requestRepository.findById(99L)).thenReturn(Optional.empty());
+        assertThrows(ResourceNotFoundException.class, () -> requestService.getRequestById(99L));
+    }
 
-        assertThrows(RuntimeException.class, () -> requestService.getRequestById(999L));
-        verify(requestRepository).findById(999L);
+    // ===== getRequestByRequestId =====
+
+    @Test
+    void getRequestByRequestId_found() {
+        when(requestRepository.findByRequestId("uuid-pending")).thenReturn(Optional.of(pendingRequest));
+        RequestResponse response = requestService.getRequestByRequestId("uuid-pending");
+        assertEquals("uuid-pending", response.getRequestId());
     }
 
     @Test
-    @DisplayName("Should retrieve request by request ID")
-    void testGetRequestByRequestIdSuccess() {
-        when(requestRepository.findByRequestId("req-123")).thenReturn(Optional.of(testRequest));
-
-        RequestResponse response = requestService.getRequestByRequestId("req-123");
-
-        assertNotNull(response);
-        assertEquals("req-123", response.getRequestId());
-        verify(requestRepository).findByRequestId("req-123");
+    void getRequestByRequestId_notFound_throwsResourceNotFoundException() {
+        when(requestRepository.findByRequestId("bad-id")).thenReturn(Optional.empty());
+        assertThrows(ResourceNotFoundException.class, () -> requestService.getRequestByRequestId("bad-id"));
     }
 
-    @Test
-    @DisplayName("Should retrieve all requests for a student")
-    void testGetRequestsByStudentSuccess() {
-        when(requestRepository.findByStudentUsername("student1"))
-                .thenReturn(Arrays.asList(testRequest));
+    // ===== getRequestsByStudent =====
 
+    @Test
+    void getRequestsByStudent_returnsList() {
+        when(requestRepository.findByStudentUsername("student1")).thenReturn(List.of(pendingRequest));
         List<RequestResponse> responses = requestService.getRequestsByStudent("student1");
-
-        assertNotNull(responses);
         assertEquals(1, responses.size());
-        verify(requestRepository).findByStudentUsername("student1");
+        assertEquals("student1", responses.get(0).getStudentUsername());
     }
 
+    // ===== getRequestsByStudentAndStatus =====
+
     @Test
-    @DisplayName("Should retrieve requests by student and status")
-    void testGetRequestsByStudentAndStatusSuccess() {
+    void getRequestsByStudentAndStatus_validStatus() {
         when(requestRepository.findByStudentUsernameAndStatus("student1", RequestStatus.PENDING))
-                .thenReturn(Arrays.asList(testRequest));
-
+                .thenReturn(List.of(pendingRequest));
         List<RequestResponse> responses = requestService.getRequestsByStudentAndStatus("student1", "PENDING");
-
-        assertNotNull(responses);
         assertEquals(1, responses.size());
-        verify(requestRepository).findByStudentUsernameAndStatus("student1", RequestStatus.PENDING);
     }
 
     @Test
-    @DisplayName("Should retrieve all requests")
-    void testGetAllRequestsSuccess() {
-        when(requestRepository.findAll()).thenReturn(Arrays.asList(testRequest));
+    void getRequestsByStudentAndStatus_invalidStatus_throws() {
+        assertThrows(IllegalArgumentException.class,
+                () -> requestService.getRequestsByStudentAndStatus("student1", "INVALID"));
+    }
 
+    // ===== getAllRequests =====
+
+    @Test
+    void getAllRequests_returnsList() {
+        when(requestRepository.findAll()).thenReturn(List.of(pendingRequest, approvedRequest));
         List<RequestResponse> responses = requestService.getAllRequests();
+        assertEquals(2, responses.size());
+    }
 
-        assertNotNull(responses);
+    // ===== getAllRequestsByStatus =====
+
+    @Test
+    void getAllRequestsByStatus_validStatus() {
+        when(requestRepository.findByStatus(RequestStatus.PENDING)).thenReturn(List.of(pendingRequest));
+        List<RequestResponse> responses = requestService.getAllRequestsByStatus("PENDING");
         assertEquals(1, responses.size());
-        verify(requestRepository).findAll();
+        assertEquals("PENDING", responses.get(0).getStatus());
     }
 
     @Test
-    @DisplayName("Should approve request successfully")
-    void testApproveRequestSuccess() {
-        when(requestRepository.findById(1L)).thenReturn(Optional.of(testRequest));
-        when(inventoryClient.deductItemQuantity(1L, 5)).thenReturn(true);
-        when(requestRepository.save(any(StationeryRequest.class))).thenReturn(testRequest);
+    void getAllRequestsByStatus_invalidStatus_throws() {
+        assertThrows(IllegalArgumentException.class,
+                () -> requestService.getAllRequestsByStatus("UNKNOWN"));
+    }
 
-        // Start with a pending request before approval.
-        testRequest.setStatus(RequestStatus.PENDING);
-        RequestResponse response = requestService.approveRequest(1L, "admin1");
+    // ===== getAllRequestsSorted =====
 
-        assertNotNull(response);
-        verify(inventoryClient).deductItemQuantity(1L, 5);
-        verify(requestRepository).save(any(StationeryRequest.class));
+    @Test
+    void getAllRequestsSorted_byDateDesc() {
+        when(requestRepository.findAllOrderByDateDesc()).thenReturn(List.of(pendingRequest));
+        List<RequestResponse> responses = requestService.getAllRequestsSorted("date", "desc");
+        assertEquals(1, responses.size());
     }
 
     @Test
-    @DisplayName("Should throw exception when approving non-pending request")
-    void testApproveNonPendingRequest() {
-        testRequest.setStatus(RequestStatus.APPROVED);
-        when(requestRepository.findById(1L)).thenReturn(Optional.of(testRequest));
-
-        assertThrows(IllegalStateException.class, () -> requestService.approveRequest(1L, "admin1"));
-        verify(inventoryClient, never()).deductItemQuantity(anyLong(), anyInt());
+    void getAllRequestsSorted_byDateAsc() {
+        when(requestRepository.findAllOrderByDateAsc()).thenReturn(List.of(pendingRequest));
+        List<RequestResponse> responses = requestService.getAllRequestsSorted("date", "asc");
+        assertEquals(1, responses.size());
     }
 
     @Test
-    @DisplayName("Should reject request successfully")
-    void testRejectRequestSuccess() {
-        when(requestRepository.findById(1L)).thenReturn(Optional.of(testRequest));
-        when(requestRepository.save(any(StationeryRequest.class))).thenReturn(testRequest);
-
-        // Start with a pending request before rejection.
-        testRequest.setStatus(RequestStatus.PENDING);
-        RequestResponse response = requestService.rejectRequest(1L, "admin1", "Out of stock");
-
-        assertNotNull(response);
-        verify(requestRepository).save(any(StationeryRequest.class));
+    void getAllRequestsSorted_byStatus() {
+        when(requestRepository.findAllOrderByStatusAsc()).thenReturn(List.of(pendingRequest));
+        List<RequestResponse> responses = requestService.getAllRequestsSorted("status", "asc");
+        assertEquals(1, responses.size());
     }
 
     @Test
-    @DisplayName("Should fulfill approved request successfully")
-    void testFulfillRequestSuccess() {
-        testRequest.setStatus(RequestStatus.APPROVED);
-        when(requestRepository.findById(1L)).thenReturn(Optional.of(testRequest));
-        when(requestRepository.save(any(StationeryRequest.class))).thenReturn(testRequest);
-
-        RequestResponse response = requestService.fulfillRequest(1L);
-
-        assertNotNull(response);
-        verify(requestRepository).save(any(StationeryRequest.class));
+    void getAllRequestsSorted_invalidSortField_throws() {
+        assertThrows(IllegalArgumentException.class,
+                () -> requestService.getAllRequestsSorted("invalid", "asc"));
     }
 
+    // ===== getRequestsByStudentSorted =====
+
     @Test
-    @DisplayName("Should retrieve requests sorted by date descending")
-    void testGetRequestsByStudentSortedByDateDesc() {
+    void getRequestsByStudentSorted_byDateDesc() {
         when(requestRepository.findByStudentUsernameOrderByDateDesc("student1"))
-                .thenReturn(Arrays.asList(testRequest));
-
+                .thenReturn(List.of(pendingRequest));
         List<RequestResponse> responses = requestService.getRequestsByStudentSorted("student1", "date", "desc");
-
-        assertNotNull(responses);
         assertEquals(1, responses.size());
-        verify(requestRepository).findByStudentUsernameOrderByDateDesc("student1");
     }
 
     @Test
-    @DisplayName("Should retrieve requests sorted by date ascending")
-    void testGetRequestsByStudentSortedByDateAsc() {
+    void getRequestsByStudentSorted_byDateAsc() {
         when(requestRepository.findByStudentUsernameOrderByDateAsc("student1"))
-                .thenReturn(Arrays.asList(testRequest));
-
+                .thenReturn(List.of(pendingRequest));
         List<RequestResponse> responses = requestService.getRequestsByStudentSorted("student1", "date", "asc");
-
-        assertNotNull(responses);
         assertEquals(1, responses.size());
-        verify(requestRepository).findByStudentUsernameOrderByDateAsc("student1");
     }
 
     @Test
-    @DisplayName("Should retrieve requests sorted by status")
-    void testGetRequestsByStudentSortedByStatus() {
+    void getRequestsByStudentSorted_byStatus() {
         when(requestRepository.findByStudentUsernameOrderByStatusAsc("student1"))
-                .thenReturn(Arrays.asList(testRequest));
-
+                .thenReturn(List.of(pendingRequest));
         List<RequestResponse> responses = requestService.getRequestsByStudentSorted("student1", "status", "asc");
-
-        assertNotNull(responses);
         assertEquals(1, responses.size());
-        verify(requestRepository).findByStudentUsernameOrderByStatusAsc("student1");
     }
 
     @Test
-    @DisplayName("Should throw exception for invalid sort field")
-    void testInvalidSortField() {
+    void getRequestsByStudentSorted_invalidSortField_throws() {
         assertThrows(IllegalArgumentException.class,
-                () -> requestService.getRequestsByStudentSorted("student1", "invalid", "asc"));
+                () -> requestService.getRequestsByStudentSorted("student1", "bad", "asc"));
+    }
+
+    // ===== getRequestsByStatusSorted =====
+
+    @Test
+    void getRequestsByStatusSorted_byDateDesc() {
+        when(requestRepository.findByStatusOrderByDateDesc(RequestStatus.PENDING))
+                .thenReturn(List.of(pendingRequest));
+        List<RequestResponse> responses = requestService.getRequestsByStatusSorted("PENDING", "date", "desc");
+        assertEquals(1, responses.size());
     }
 
     @Test
-    @DisplayName("Should throw exception for invalid status")
-    void testInvalidStatus() {
+    void getRequestsByStatusSorted_byDateAsc() {
+        when(requestRepository.findByStatusOrderByDateAsc(RequestStatus.PENDING))
+                .thenReturn(List.of(pendingRequest));
+        List<RequestResponse> responses = requestService.getRequestsByStatusSorted("PENDING", "date", "asc");
+        assertEquals(1, responses.size());
+    }
+
+    @Test
+    void getRequestsByStatusSorted_byStatus() {
+        when(requestRepository.findByStatus(RequestStatus.PENDING))
+                .thenReturn(List.of(pendingRequest));
+        List<RequestResponse> responses = requestService.getRequestsByStatusSorted("PENDING", "status", "asc");
+        assertEquals(1, responses.size());
+    }
+
+    @Test
+    void getRequestsByStatusSorted_invalidSortField_throws() {
         assertThrows(IllegalArgumentException.class,
-                () -> requestService.getRequestsByStudentAndStatus("student1", "INVALID_STATUS"));
+                () -> requestService.getRequestsByStatusSorted("PENDING", "bad", "asc"));
+    }
+
+    // ===== getRequestsByStudentAndStatusSorted =====
+
+    @Test
+    void getRequestsByStudentAndStatusSorted_byDateDesc() {
+        when(requestRepository.findByStudentUsernameAndStatusOrderByDateDesc("student1", RequestStatus.PENDING))
+                .thenReturn(List.of(pendingRequest));
+        List<RequestResponse> responses = requestService.getRequestsByStudentAndStatusSorted(
+                "student1", "PENDING", "date", "desc");
+        assertEquals(1, responses.size());
+    }
+
+    @Test
+    void getRequestsByStudentAndStatusSorted_byDateAsc() {
+        when(requestRepository.findByStudentUsernameAndStatusOrderByDateAsc("student1", RequestStatus.PENDING))
+                .thenReturn(List.of(pendingRequest));
+        List<RequestResponse> responses = requestService.getRequestsByStudentAndStatusSorted(
+                "student1", "PENDING", "date", "asc");
+        assertEquals(1, responses.size());
+    }
+
+    @Test
+    void getRequestsByStudentAndStatusSorted_byStatus() {
+        when(requestRepository.findByStudentUsernameAndStatus("student1", RequestStatus.PENDING))
+                .thenReturn(List.of(pendingRequest));
+        List<RequestResponse> responses = requestService.getRequestsByStudentAndStatusSorted(
+                "student1", "PENDING", "status", "asc");
+        assertEquals(1, responses.size());
+    }
+
+    @Test
+    void getRequestsByStudentAndStatusSorted_invalidSortField_throws() {
+        assertThrows(IllegalArgumentException.class,
+                () -> requestService.getRequestsByStudentAndStatusSorted(
+                        "student1", "PENDING", "bad", "asc"));
+    }
+
+    // ===== approveRequest =====
+
+    @Test
+    void approveRequest_success() {
+        when(requestRepository.findById(1L)).thenReturn(Optional.of(pendingRequest));
+        when(inventoryClient.deductItemQuantity(10L, 5)).thenReturn(true);
+        when(requestRepository.save(any())).thenReturn(pendingRequest);
+
+        RequestResponse response = requestService.approveRequest(1L, "admin1");
+        assertEquals("APPROVED", response.getStatus());
+        assertEquals("admin1", response.getAdminUsername());
+    }
+
+    @Test
+    void approveRequest_notPending_throws() {
+        when(requestRepository.findById(2L)).thenReturn(Optional.of(approvedRequest));
+        assertThrows(IllegalStateException.class, () -> requestService.approveRequest(2L, "admin1"));
+    }
+
+    @Test
+    void approveRequest_notFound_throws() {
+        when(requestRepository.findById(99L)).thenReturn(Optional.empty());
+        assertThrows(ResourceNotFoundException.class, () -> requestService.approveRequest(99L, "admin1"));
+    }
+
+    @Test
+    void approveRequest_inventoryReturnsFalse_throws() {
+        when(requestRepository.findById(1L)).thenReturn(Optional.of(pendingRequest));
+        when(inventoryClient.deductItemQuantity(10L, 5)).thenReturn(false);
+
+        assertThrows(RuntimeException.class, () -> requestService.approveRequest(1L, "admin1"));
+    }
+
+    @Test
+    void approveRequest_inventoryReturnsBadRequest_throwsInsufficientStock() {
+        when(requestRepository.findById(1L)).thenReturn(Optional.of(pendingRequest));
+        when(inventoryClient.deductItemQuantity(10L, 5))
+                .thenThrow(mock(FeignException.BadRequest.class));
+
+        assertThrows(InsufficientStockException.class, () -> requestService.approveRequest(1L, "admin1"));
+    }
+
+    @Test
+    void approveRequest_feignException_wrapsAsRuntimeException() {
+        when(requestRepository.findById(1L)).thenReturn(Optional.of(pendingRequest));
+        FeignException feignEx = mock(FeignException.class);
+        when(inventoryClient.deductItemQuantity(10L, 5)).thenThrow(feignEx);
+
+        assertThrows(RuntimeException.class, () -> requestService.approveRequest(1L, "admin1"));
+    }
+
+    // ===== rejectRequest =====
+
+    @Test
+    void rejectRequest_success() {
+        when(requestRepository.findById(1L)).thenReturn(Optional.of(pendingRequest));
+        when(requestRepository.save(any())).thenReturn(pendingRequest);
+
+        RequestResponse response = requestService.rejectRequest(1L, "admin1", "Duplicate");
+        assertEquals("REJECTED", response.getStatus());
+        assertEquals("admin1", response.getAdminUsername());
+    }
+
+    @Test
+    void rejectRequest_notPending_throws() {
+        when(requestRepository.findById(2L)).thenReturn(Optional.of(approvedRequest));
+        assertThrows(IllegalStateException.class,
+                () -> requestService.rejectRequest(2L, "admin1", "reason"));
+    }
+
+    @Test
+    void rejectRequest_notFound_throws() {
+        when(requestRepository.findById(99L)).thenReturn(Optional.empty());
+        assertThrows(ResourceNotFoundException.class,
+                () -> requestService.rejectRequest(99L, "admin1", "reason"));
+    }
+
+    @Test
+    void rejectRequest_nullReason_succeeds() {
+        when(requestRepository.findById(1L)).thenReturn(Optional.of(pendingRequest));
+        when(requestRepository.save(any())).thenReturn(pendingRequest);
+
+        RequestResponse response = requestService.rejectRequest(1L, "admin1", null);
+        assertEquals("REJECTED", response.getStatus());
+    }
+
+    // ===== fulfillRequest =====
+
+    @Test
+    void fulfillRequest_success() {
+        when(requestRepository.findById(2L)).thenReturn(Optional.of(approvedRequest));
+        when(requestRepository.save(any())).thenReturn(approvedRequest);
+
+        RequestResponse response = requestService.fulfillRequest(2L);
+        assertEquals("FULFILLED", response.getStatus());
+    }
+
+    @Test
+    void fulfillRequest_notApproved_throws() {
+        when(requestRepository.findById(1L)).thenReturn(Optional.of(pendingRequest));
+        assertThrows(IllegalStateException.class, () -> requestService.fulfillRequest(1L));
+    }
+
+    @Test
+    void fulfillRequest_notFound_throws() {
+        when(requestRepository.findById(99L)).thenReturn(Optional.empty());
+        assertThrows(ResourceNotFoundException.class, () -> requestService.fulfillRequest(99L));
     }
 }

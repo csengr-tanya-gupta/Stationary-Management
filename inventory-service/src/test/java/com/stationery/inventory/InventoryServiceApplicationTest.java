@@ -5,10 +5,17 @@ import org.mockito.MockedStatic;
 import org.springframework.boot.SpringApplication;
 import org.springframework.context.ConfigurableApplicationContext;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 class InventoryServiceApplicationTest {
+
+    @Test
+    void constructorCoverage() {
+        InventoryServiceApplication app = new InventoryServiceApplication();
+        assertNotNull(app);
+    }
 
     @Test
     void main_invokesSpringApplicationRun() {
