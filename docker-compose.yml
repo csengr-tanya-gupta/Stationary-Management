@@ -1,0 +1,287 @@
+# ============================================================
+# Stationery Management System - Docker Compose Orchestration
+# ============================================================
+# DOCKER DOCUMENTATION:
+# 
+# 1. Dockerfiles:
+# Each microservice has its own Dockerfile. The Dockerfile specifies how to build an image for that specific service, 
+# typically starting from a base Java or Node.js image, copying the built artifact (e.g., a .jar file or build folder),
+# and specifying the command to run the service.
+#
+# 2. docker-compose.yml (This File):
+# This file orchestrates the entire multi-container application. It allows us to define all the services, their networks, 
+# volumes, and dependencies in one place. Instead of starting each service manually, `docker-compose up` brings the entire 
+# system online together.
+#
+# 3. Container Responsibilities:
+# - mysql: Hosts all databases (auth_db, inventory_db, request_db).
+# - config-server: Provides centralized configuration to all other Spring Boot services.
+# - eureka-server: Service registry allowing services to find each other dynamically.
+# - api-gateway: The single entry point for the frontend to reach backend services.
+# - auth-service: Handles user authentication and JWT generation.
+# - inventory-service: Manages stationery stock.
+# - request-service: Manages employee requests and interacts with inventory.
+# - frontend: React application served via Nginx.
+#
+# 4. Service Startup Order (controlled by `depends_on` and `healthcheck`):
+# Since microservices depend on each other, startup order is critical to prevent cascading failures.
+# Order: mysql -> config-server -> eureka-server -> api-gateway & domain services -> frontend
+# We use `condition: service_healthy` to wait for a service to be fully ready (not just started) before starting its dependents.
+#
+# 5. Network Communication:
+# All services are attached to a custom bridge network called `sms-network`.
+# This allows containers to communicate with each other using their service names as hostnames (e.g., `http://config-server:8888`).
+# 
+# ============================================================
+# Usage:
+#   docker-compose up --build        (build & start all services)
+#   docker-compose up -d             (start in detached mode)
+#   docker-compose down              (stop all services)
+#   docker-compose down -v           (stop & remove volumes)
+#   docker-compose logs -f <service> (follow logs for a service)
+# ============================================================
+
+version: '3.8'
+
+services:
+
+  # ──────────────────────────────────────────────────────────
+  # MySQL Database
+  # ──────────────────────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: sms-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_HOST: '%'
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - sms-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ──────────────────────────────────────────────────────────
+  # Spring Cloud Config Server
+  # ──────────────────────────────────────────────────────────
+  config-server:
+    build:
+      context: ./config-server
+      dockerfile: Dockerfile
+    container_name: sms-config-server
+    restart: unless-stopped
+    ports:
+      - "8888:8888"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - sms-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ──────────────────────────────────────────────────────────
+  # Eureka Service Discovery Server
+  # ──────────────────────────────────────────────────────────
+  eureka-server:
+    build:
+      context: ./eureka-server
+      dockerfile: Dockerfile
+    container_name: sms-eureka-server
+    restart: unless-stopped
+    ports:
+      - "8761:8761"
+    depends_on:
+      config-server:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_CONFIG_IMPORT: configserver:http://config-server:8888
+      EUREKA_SERVER_PEER_NODE_READ_TIMEOUT_MS: "20000"
+    networks:
+      - sms-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  # ──────────────────────────────────────────────────────────
+  # API Gateway
+  # ──────────────────────────────────────────────────────────
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: sms-api-gateway
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_CONFIG_IMPORT: configserver:http://config-server:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    networks:
+      - sms-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8090/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  # ──────────────────────────────────────────────────────────
+  # Auth Service
+  # ──────────────────────────────────────────────────────────
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    container_name: sms-auth-service
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_CONFIG_IMPORT: configserver:http://config-server:8888
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/auth_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    networks:
+      - sms-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 45s
+
+  # ──────────────────────────────────────────────────────────
+  # Inventory Service
+  # ──────────────────────────────────────────────────────────
+  inventory-service:
+    build:
+      context: ./inventory-service
+      dockerfile: Dockerfile
+    container_name: sms-inventory-service
+    restart: unless-stopped
+    ports:
+      - "8082:8082"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_CONFIG_IMPORT: configserver:http://config-server:8888
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/inventory_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    networks:
+      - sms-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 45s
+
+  # ──────────────────────────────────────────────────────────
+  # Request Service
+  # ──────────────────────────────────────────────────────────
+  request-service:
+    build:
+      context: ./request-service
+      dockerfile: Dockerfile
+    container_name: sms-request-service
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+      inventory-service:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_CONFIG_IMPORT: configserver:http://config-server:8888
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/request_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    networks:
+      - sms-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 45s
+
+  # ──────────────────────────────────────────────────────────
+  # React Frontend (served via Nginx)
+  # ──────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: sms-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    environment:
+      REACT_APP_API_BASE_URL: http://localhost:8090
+    networks:
+      - sms-network
+
+# ──────────────────────────────────────────────────────────
+# Named Volumes
+# ──────────────────────────────────────────────────────────
+volumes:
+  mysql_data:
+    driver: local
+
+# ──────────────────────────────────────────────────────────
+# Networks
+# ──────────────────────────────────────────────────────────
+networks:
+  sms-network:
+    driver: bridge
+    name: sms-network

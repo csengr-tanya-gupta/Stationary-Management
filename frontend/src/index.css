@@ -1,0 +1,193 @@
+/* =========================================================
+   STATIONERY MANAGEMENT SYSTEM — DESIGN SYSTEM
+   Palette: Lavender + Green, on a warm "paper" neutral base.
+   Display face: Sora · Body/data face: Inter
+   ========================================================= */
+
+:root {
+  /* ---- Lavender (brand / primary) ---- */
+  --lav-900: #241B36;
+  --lav-800: #34274E;
+  --lav-700: #423265;
+  --lav-600: #5B4488;
+  --lav-500: #7257A8;
+  --lav-400: #9279C2;
+  --lav-300: #B6A0D8;
+  --lav-200: #D6C7EA;
+  --lav-100: #EAE0F5;
+  --lav-50:  #F6F1FB;
+
+  /* ---- Green (secondary / success / accent) ---- */
+  --grn-800: #163C2B;
+  --grn-700: #1C5239;
+  --grn-600: #246B49;
+  --grn-500: #2F8B5F;
+  --grn-400: #45A576;
+  --grn-300: #74C29B;
+  --grn-200: #AADDC2;
+  --grn-100: #DBF0E5;
+  --grn-50:  #F0FAF5;
+
+  /* ---- Clay (rejection / destructive — the "red stamp ink") ---- */
+  --clay-700: #7A2E28;
+  --clay-600: #9B3C33;
+  --clay-500: #B85245;
+  --clay-100: #F6E2DE;
+  --clay-50:  #FBEFEC;
+
+  /* ---- Amber (low stock / caution) ---- */
+  --amb-700: #8A5E16;
+  --amb-600: #A8771E;
+  --amb-500: #C28F2B;
+  --amb-100: #F6E9CE;
+  --amb-50:  #FBF4E5;
+
+  /* ---- Ink & Paper (neutrals) ---- */
+  --ink-900: #221C2E;
+  --ink-700: #463C57;
+  --ink-500: #6B6178;
+  --ink-400: #8B8296;
+  --ink-300: #B0A8BD;
+  --line:      #E3DCEE;
+  --line-soft: #ECE6F5;
+  --paper-0:   #FFFFFF;
+  --paper-50:  #FBF9FD;
+  --paper-100: #F4EFFA;
+
+  /* ---- Aliases used throughout the app ---- */
+  --brand: var(--lav-600);
+  --brand-strong: var(--lav-700);
+  --accent: var(--grn-500);
+  --accent-strong: var(--grn-600);
+  --bg-app: var(--paper-50);
+  --bg-card: var(--paper-0);
+  --text-primary: var(--ink-900);
+  --text-secondary: var(--ink-500);
+  --text-muted: var(--ink-400);
+  --border-color: var(--line);
+
+  /* ---- Radius ---- */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+  --radius-pill: 999px;
+
+  /* ---- Shadows (flat and clean) ---- */
+  --shadow-xs: none;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+
+  /* ---- Motion ---- */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-fast: 0.15s var(--ease);
+  --transition-normal: 0.25s var(--ease);
+  --transition-slow: 0.45s var(--ease);
+
+  /* ---- Type ---- */
+  --font-display: 'Sora', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* =========================================
+   RESET
+   ========================================= */
+
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  line-height: 1.55;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+  /* Background texture removed per requirements */
+
+#root {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+}
+
+a {
+  color: var(--brand);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+a:hover {
+  color: var(--brand-strong);
+}
+
+button {
+  font-family: var(--font-body);
+  cursor: pointer;
+  border: none;
+  outline: none;
+  background: none;
+}
+
+input,
+select,
+textarea {
+  font-family: var(--font-body);
+  outline: none;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+:focus-visible {
+  outline: 2px solid var(--lav-500);
+  outline-offset: 2px;
+}
+
+/* =========================================
+   SCROLLBAR
+   ========================================= */
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--lav-200);
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--lav-300);
+}
+
+/* Animations and gradients removed per requirements */

@@ -1,0 +1,74 @@
+/* =========================================
+   APP SHELL
+   ========================================= */
+
+.app-shell {
+  min-height: 100vh;
+}
+
+.app-main {
+  margin-left: 264px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0 1.75rem;
+  height: 64px;
+  background: rgba(251, 249, 253, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.topbar-menu-btn {
+  display: none;
+  color: var(--lav-700);
+  padding: 0.4rem;
+  border-radius: var(--radius-sm);
+}
+
+.topbar-menu-btn:hover {
+  background: var(--lav-100);
+}
+
+.topbar-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.app-content {
+  flex: 1;
+  padding: 1.75rem;
+  max-width: 1320px;
+  width: 100%;
+  animation: fadeIn 0.35s var(--ease);
+}
+
+@media (max-width: 900px) {
+  .app-main {
+    margin-left: 0;
+  }
+
+  .topbar-menu-btn {
+    display: flex;
+  }
+}
+
+@media (max-width: 600px) {
+  .app-topbar {
+    padding: 0 1.1rem;
+    height: 58px;
+  }
+
+  .app-content {
+    padding: 1.1rem;
+  }
+}
