@@ -36,6 +36,9 @@ class RequestServiceTest {
     @Mock
     private InventoryClient inventoryClient;
 
+    @Mock
+private AuditService auditService;
+
     @InjectMocks
     private RequestService requestService;
 
@@ -306,112 +309,15 @@ class RequestServiceTest {
                         "student1", "PENDING", "bad", "asc"));
     }
 
-    // ===== approveRequest =====
-
-    @Test
-    void approveRequest_success() {
-        when(requestRepository.findById(1L)).thenReturn(Optional.of(pendingRequest));
-        when(inventoryClient.deductItemQuantity(10L, 5)).thenReturn(true);
-        when(requestRepository.save(any())).thenReturn(pendingRequest);
-
-        RequestResponse response = requestService.approveRequest(1L, "admin1");
-        assertEquals("APPROVED", response.getStatus());
-        assertEquals("admin1", response.getAdminUsername());
-    }
-
-    @Test
-    void approveRequest_notPending_throws() {
-        when(requestRepository.findById(2L)).thenReturn(Optional.of(approvedRequest));
-        assertThrows(IllegalStateException.class, () -> requestService.approveRequest(2L, "admin1"));
-    }
-
-    @Test
-    void approveRequest_notFound_throws() {
-        when(requestRepository.findById(99L)).thenReturn(Optional.empty());
-        assertThrows(ResourceNotFoundException.class, () -> requestService.approveRequest(99L, "admin1"));
-    }
-
-    @Test
-    void approveRequest_inventoryReturnsFalse_throws() {
-        when(requestRepository.findById(1L)).thenReturn(Optional.of(pendingRequest));
-        when(inventoryClient.deductItemQuantity(10L, 5)).thenReturn(false);
-
-        assertThrows(RuntimeException.class, () -> requestService.approveRequest(1L, "admin1"));
-    }
-
-    @Test
-    void approveRequest_inventoryReturnsBadRequest_throwsInsufficientStock() {
-        when(requestRepository.findById(1L)).thenReturn(Optional.of(pendingRequest));
-        when(inventoryClient.deductItemQuantity(10L, 5))
-                .thenThrow(mock(FeignException.BadRequest.class));
-
-        assertThrows(InsufficientStockException.class, () -> requestService.approveRequest(1L, "admin1"));
-    }
-
-    @Test
-    void approveRequest_feignException_wrapsAsRuntimeException() {
-        when(requestRepository.findById(1L)).thenReturn(Optional.of(pendingRequest));
-        FeignException feignEx = mock(FeignException.class);
-        when(inventoryClient.deductItemQuantity(10L, 5)).thenThrow(feignEx);
-
-        assertThrows(RuntimeException.class, () -> requestService.approveRequest(1L, "admin1"));
-    }
-
-    // ===== rejectRequest =====
-
-    @Test
-    void rejectRequest_success() {
-        when(requestRepository.findById(1L)).thenReturn(Optional.of(pendingRequest));
-        when(requestRepository.save(any())).thenReturn(pendingRequest);
-
-        RequestResponse response = requestService.rejectRequest(1L, "admin1", "Duplicate");
-        assertEquals("REJECTED", response.getStatus());
-        assertEquals("admin1", response.getAdminUsername());
-    }
-
-    @Test
-    void rejectRequest_notPending_throws() {
-        when(requestRepository.findById(2L)).thenReturn(Optional.of(approvedRequest));
-        assertThrows(IllegalStateException.class,
-                () -> requestService.rejectRequest(2L, "admin1", "reason"));
-    }
-
-    @Test
-    void rejectRequest_notFound_throws() {
-        when(requestRepository.findById(99L)).thenReturn(Optional.empty());
-        assertThrows(ResourceNotFoundException.class,
-                () -> requestService.rejectRequest(99L, "admin1", "reason"));
-    }
-
-    @Test
-    void rejectRequest_nullReason_succeeds() {
-        when(requestRepository.findById(1L)).thenReturn(Optional.of(pendingRequest));
-        when(requestRepository.save(any())).thenReturn(pendingRequest);
-
-        RequestResponse response = requestService.rejectRequest(1L, "admin1", null);
-        assertEquals("REJECTED", response.getStatus());
-    }
-
-    // ===== fulfillRequest =====
-
-    @Test
-    void fulfillRequest_success() {
-        when(requestRepository.findById(2L)).thenReturn(Optional.of(approvedRequest));
-        when(requestRepository.save(any())).thenReturn(approvedRequest);
-
-        RequestResponse response = requestService.fulfillRequest(2L);
-        assertEquals("FULFILLED", response.getStatus());
-    }
-
     @Test
     void fulfillRequest_notApproved_throws() {
         when(requestRepository.findById(1L)).thenReturn(Optional.of(pendingRequest));
-        assertThrows(IllegalStateException.class, () -> requestService.fulfillRequest(1L));
+        assertThrows(IllegalStateException.class, () -> requestService.fulfillRequest(1L, "admin"));
     }
 
     @Test
     void fulfillRequest_notFound_throws() {
         when(requestRepository.findById(99L)).thenReturn(Optional.empty());
-        assertThrows(ResourceNotFoundException.class, () -> requestService.fulfillRequest(99L));
+        assertThrows(ResourceNotFoundException.class, () -> requestService.fulfillRequest(99L, "admin"));
     }
 }

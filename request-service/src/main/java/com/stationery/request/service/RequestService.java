@@ -26,10 +26,13 @@ public class RequestService {
 
     private final RequestRepository requestRepository;
     private final InventoryClient inventoryClient;
+    private final AuditService auditService;
 
-    public RequestService(RequestRepository requestRepository, InventoryClient inventoryClient) {
+    public RequestService(RequestRepository requestRepository, InventoryClient inventoryClient,
+                          AuditService auditService) {
         this.requestRepository = requestRepository;
         this.inventoryClient = inventoryClient;
+        this.auditService = auditService;
     }
 
     /**
@@ -57,6 +60,8 @@ public class RequestService {
         StationeryRequest savedRequest = requestRepository.save(request);
         log.info("AUDIT: Stationery request created successfully. RequestId: {}, Student: {}, Items: {}",
                 savedRequest.getRequestId(), username, createRequestDto.getItems().size());
+        auditService.record(username, "REQUEST_CREATED", "REQUEST", savedRequest.getRequestId(),
+                "Created request with " + createRequestDto.getItems().size() + " item(s)");
 
         return mapToResponse(savedRequest);
     }
@@ -298,6 +303,8 @@ public class RequestService {
 
         log.info("AUDIT: Request ID: {} approved by admin '{}'. All inventory deductions successful.",
                 id, adminUsername);
+        auditService.record(adminUsername, "REQUEST_APPROVED", "REQUEST", savedRequest.getRequestId(),
+                "Approved request");
 
         return mapToResponse(savedRequest);
     }
@@ -323,6 +330,8 @@ public class RequestService {
         StationeryRequest savedRequest = requestRepository.save(request);
 
         log.info("AUDIT: Request ID: {} rejected by admin '{}'.", id, adminUsername);
+        auditService.record(adminUsername, "REQUEST_REJECTED", "REQUEST", savedRequest.getRequestId(),
+                reason == null ? "Rejected request" : "Rejected request: " + reason);
 
         return mapToResponse(savedRequest);
     }
@@ -331,7 +340,7 @@ public class RequestService {
      * Fulfill a request: change status from APPROVED to FULFILLED.
      */
     @Transactional
-    public RequestResponse fulfillRequest(Long id) {
+    public RequestResponse fulfillRequest(Long id, String adminUsername) {
         log.info("AUDIT: Fulfilling request ID: {}", id);
 
         StationeryRequest request = requestRepository.findById(id)
@@ -346,6 +355,8 @@ public class RequestService {
         StationeryRequest savedRequest = requestRepository.save(request);
 
         log.info("AUDIT: Request ID: {} fulfilled successfully.", id);
+        auditService.record(adminUsername, "REQUEST_FULFILLED", "REQUEST", savedRequest.getRequestId(),
+                "Fulfilled request");
 
         return mapToResponse(savedRequest);
     }

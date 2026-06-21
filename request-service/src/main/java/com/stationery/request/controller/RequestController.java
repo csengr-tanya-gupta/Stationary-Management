@@ -112,11 +112,19 @@ public class RequestController {
     @Operation(summary = "Get request by ID", description = "Retrieve a specific request by its database ID")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Request found"),
+            @ApiResponse(responseCode = "403", description = "Access denied"),
             @ApiResponse(responseCode = "404", description = "Request not found")
     })
-    public ResponseEntity<RequestResponse> getRequestById(@PathVariable Long id) {
-        log.info("AUDIT: GET /api/requests/{} - Fetching request by ID", id);
+    public ResponseEntity<RequestResponse> getRequestById(
+            @PathVariable Long id,
+            @RequestHeader("X-User-Name") String username,
+            @RequestHeader("X-User-Role") String role) {
+        log.info("AUDIT: GET /api/requests/{} - User: {}, Role: {}", id, username, role);
         RequestResponse response = requestService.getRequestById(id);
+        if (!canAccessRequest(response, username, role)) {
+            log.warn("AUDIT: Access denied to request ID {} for user: {}", id, username);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         return ResponseEntity.ok(response);
     }
 
@@ -128,11 +136,19 @@ public class RequestController {
     @Operation(summary = "Track request by request ID", description = "Track a specific request using its UUID")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Request found"),
+            @ApiResponse(responseCode = "403", description = "Access denied"),
             @ApiResponse(responseCode = "404", description = "Request not found")
     })
-    public ResponseEntity<RequestResponse> getRequestByRequestId(@PathVariable String requestId) {
-        log.info("AUDIT: GET /api/requests/track/{} - Tracking request", requestId);
+    public ResponseEntity<RequestResponse> getRequestByRequestId(
+            @PathVariable String requestId,
+            @RequestHeader("X-User-Name") String username,
+            @RequestHeader("X-User-Role") String role) {
+        log.info("AUDIT: GET /api/requests/track/{} - User: {}, Role: {}", requestId, username, role);
         RequestResponse response = requestService.getRequestByRequestId(requestId);
+        if (!canAccessRequest(response, username, role)) {
+            log.warn("AUDIT: Access denied to request ID {} for user: {}", requestId, username);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         return ResponseEntity.ok(response);
     }
 
@@ -245,16 +261,23 @@ public class RequestController {
     })
     public ResponseEntity<RequestResponse> fulfillRequest(
             @PathVariable Long id,
+            @RequestHeader("X-User-Name") String adminUsername,
             @RequestHeader("X-User-Role") String role) {
 
         log.info("AUDIT: PUT /api/requests/{}/fulfill - Role: {}", id, role);
         validateRole(role, "ADMIN");
 
-        RequestResponse response = requestService.fulfillRequest(id);
+        RequestResponse response = requestService.fulfillRequest(id, adminUsername);
         return ResponseEntity.ok(response);
     }
 
     // ========== Helper Methods ==========
+
+    private boolean canAccessRequest(RequestResponse request, String username, String role) {
+        return "ADMIN".equalsIgnoreCase(role)
+                || ("STUDENT".equalsIgnoreCase(role)
+                && username.equals(request.getStudentUsername()));
+    }
 
     /**
      * Validate that the user has the required role.

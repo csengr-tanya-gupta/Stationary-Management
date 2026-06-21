@@ -149,7 +149,9 @@ class GlobalExceptionHandlerTest {
         when(requestService.getRequestById(99L))
                 .thenThrow(new ResourceNotFoundException("Request", "id", 99L));
 
-        mockMvc.perform(get("/api/requests/99"))
+        mockMvc.perform(get("/api/requests/99")
+                        .header("X-User-Name", "student1")
+                        .header("X-User-Role", "STUDENT"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.message").exists())
@@ -488,11 +490,12 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void handleIllegalStateException_viaMockMvc_returns409() throws Exception {
-        when(requestService.fulfillRequest(1L))
+        when(requestService.fulfillRequest(1L, "admin"))
                 .thenThrow(new IllegalStateException(
                         "Request can only be fulfilled when in APPROVED status. Current status: PENDING"));
 
         mockMvc.perform(put("/api/requests/1/fulfill")
+        .header("X-User-Name", "admin")
                         .header("X-User-Role", "ADMIN"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status").value(409))

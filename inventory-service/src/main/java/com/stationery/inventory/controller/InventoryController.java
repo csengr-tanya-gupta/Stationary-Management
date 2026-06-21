@@ -60,7 +60,7 @@ public class InventoryController {
         log.info("AUDIT: User '{}' (role: {}) creating new stationery item: '{}'",
                 userName, userRole, request.getName());
 
-        StationeryItemResponse response = inventoryService.createItem(request);
+        StationeryItemResponse response = inventoryService.createItem(request, userName);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
@@ -151,7 +151,7 @@ public class InventoryController {
 
         log.info("AUDIT: User '{}' (role: {}) updating stationery item ID: {}", userName, userRole, id);
 
-        StationeryItemResponse response = inventoryService.updateItem(id, request);
+        StationeryItemResponse response = inventoryService.updateItem(id, request, userName);
         return ResponseEntity.ok(response);
     }
 
@@ -183,7 +183,7 @@ public class InventoryController {
 
         log.info("AUDIT: User '{}' (role: {}) deleting stationery item ID: {}", userName, userRole, id);
 
-        inventoryService.deleteItem(id);
+        inventoryService.deleteItem(id, userName);
         return ResponseEntity.noContent().build();
     }
 

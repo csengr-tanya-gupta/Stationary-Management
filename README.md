@@ -1,6 +1,6 @@
 # Stationery Management System
 
-A full-stack **microservices-based** Stationery Management System built with **Spring Boot**, **Spring Cloud**, and **React**. The system enables organizations to manage stationery inventory, process purchase/issue requests with multi-level approvals, and maintain complete audit trails — all through a modern, responsive web interface.
+A full-stack **microservices-based** Stationery Management System built with **Spring Boot**, **Spring Cloud**, and **React**. The system enables organisations to manage stationery inventory, process issue requests with admin approval, and maintain complete audit trails — all through a modern, role-adaptive web interface.
 
 ---
 
@@ -11,15 +11,15 @@ A full-stack **microservices-based** Stationery Management System built with **S
 │                              FRONTEND (React)                               │
 │                            http://localhost:3000                             │
 └─────────────────────────────────┬───────────────────────────────────────────┘
-                                  │
+                                  │  REACT_APP_API_URL=http://localhost:8090
                                   ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         API GATEWAY (Spring Cloud)                          │
-│                            http://localhost:8080                             │
-│               Route: /api/auth/** → AUTH-SERVICE                            │
-│               Route: /api/inventory/** → INVENTORY-SERVICE                  │
-│               Route: /api/requests/** → REQUEST-SERVICE                     │
-│               Cross-Cutting: JWT Validation, CORS, Rate Limiting            │
+│                            http://localhost:8090                             │
+│               Route: /api/auth/**       → AUTH-SERVICE                      │
+│               Route: /api/inventory/**  → INVENTORY-SERVICE                 │
+│               Route: /api/requests/**   → REQUEST-SERVICE                   │
+│               Cross-Cutting: JWT Validation (GlobalFilter), CORS            │
 └──────┬──────────────────────┬──────────────────────┬───────────────────────┘
        │                      │                      │
        ▼                      ▼                      ▼
@@ -29,19 +29,20 @@ A full-stack **microservices-based** Stationery Management System built with **S
 │              │   │                   │   │                  │
 │ • Register   │   │ • CRUD Items      │   │ • Create Request │
 │ • Login/JWT  │   │ • Stock Mgmt      │   │ • Approve/Reject │
-│ • Validate   │   │ • Categories      │   │ • Status Track   │
-│ • Roles      │   │ • Low-Stock Alert │   │ • Feign → Inv.   │
+│ • Validate   │   │ • Category filter │   │ • Fulfill        │
+│ • Roles      │   │ • Low-Stock Alert │   │ • Track by UUID  │
+│              │   │ • Search          │   │ • Feign → Inv.   │
 └──────┬───────┘   └────────┬──────────┘   └────────┬─────────┘
-       │                    │                       │
-       ▼                    ▼                       ▼
+       │                    │                        │
+       ▼                    ▼                        ▼
 ┌──────────────┐   ┌───────────────────┐   ┌──────────────────┐
 │   auth_db    │   │  inventory_db     │   │   request_db     │
 │   (MySQL)    │   │   (MySQL)         │   │   (MySQL)        │
 └──────────────┘   └───────────────────┘   └──────────────────┘
 
                     ┌───────────────────┐
-                    │  CONFIG SERVER    │◄── Centralized Configuration
-                    │  :8888            │    (Git/Native profiles)
+                    │  CONFIG SERVER    │◄── Centralised Configuration
+                    │  :8888            │    (Classpath native profiles)
                     └───────────────────┘
 
                     ┌───────────────────┐
@@ -52,231 +53,184 @@ A full-stack **microservices-based** Stationery Management System built with **S
 
 ---
 
-## ️ Technology Stack
+## Technology Stack
 
-| Layer              | Technology                                      |
+| Layer              | Technology                                       |
 |--------------------|--------------------------------------------------|
-| **Frontend**       | React 18, React Router, Axios, Bootstrap 5       |
-| **API Gateway**    | Spring Cloud Gateway (Reactive)                  |
-| **Backend**        | Java 17, Spring Boot 3.2.x, Spring Cloud 2023.x  |
-| **Security**       | Spring Security, JWT (JSON Web Tokens)            |
-| **Service Comm.**  | OpenFeign (Declarative REST Clients)              |
+| **Frontend**       | React 18, React Router, Axios, Context API        |
+| **API Gateway**    | Spring Cloud Gateway (Reactive, WebFlux)          |
+| **Backend**        | Java 17, Spring Boot 3.2.0, Spring Cloud 2023.x   |
+| **Security**       | Spring Security, JWT (HMAC-SHA256 via jjwt)       |
+| **Service Comm.**  | OpenFeign (Declarative REST Client)               |
 | **Discovery**      | Netflix Eureka (Service Registry)                 |
-| **Configuration**  | Spring Cloud Config Server (Centralized)          |
+| **Configuration**  | Spring Cloud Config Server (Classpath / Native)   |
 | **Database**       | MySQL 8.0 (Separate DB per microservice)          |
 | **ORM**            | Spring Data JPA / Hibernate                       |
-| **Build**          | Maven 3.9+                                        |
-| **Containerization** | Docker, Docker Compose                          |
+| **Validation**     | Jakarta Bean Validation (@Valid, @NotBlank, etc.) |
+| **Build**          | Maven 3.9+ (Multi-module parent POM)              |
+| **Containerisation** | Docker, Docker Compose                          |
 | **CI/CD**          | Jenkins (Declarative Pipeline)                    |
+| **Testing**        | JUnit 5, Mockito, JaCoCo (coverage reports)       |
 
 ---
 
 ## Prerequisites
 
-Ensure the following tools are installed on your machine:
-
-| Tool            | Version   | Download Link                                                 |
-|-----------------|-----------|---------------------------------------------------------------|
-| **Java JDK**    | 17+       | [Eclipse Temurin](https://adoptium.net/)                      |
-| **Maven**       | 3.9+      | [Maven Downloads](https://maven.apache.org/download.cgi)      |
-| **Node.js**     | 18+       | [Node.js Downloads](https://nodejs.org/)                      |
-| **npm**         | 9+        | Bundled with Node.js                                          |
-| **MySQL**       | 8.0       | [MySQL Downloads](https://dev.mysql.com/downloads/)           |
-| **Docker**      | 24+       | [Docker Desktop](https://www.docker.com/products/docker-desktop) |
-| **Docker Compose** | 2.20+  | Bundled with Docker Desktop                                   |
-| **Git**         | 2.40+     | [Git Downloads](https://git-scm.com/downloads)                |
-
----
-
-## Running Locally (Without Docker)
-
-### Step 1: Start MySQL & Create Databases
-
-```sql
--- Connect to MySQL as root
-mysql -u root -p
-
--- Create the three databases
-CREATE DATABASE IF NOT EXISTS auth_db;
-CREATE DATABASE IF NOT EXISTS inventory_db;
-CREATE DATABASE IF NOT EXISTS request_db;
-
--- Verify
-SHOW DATABASES;
-```
-
-### Step 2: Start Config Server
-
-```bash
-cd stationery-management/config-server
-mvn spring-boot:run
-```
-
-Wait until you see: `Started ConfigServerApplication on port 8888`
-
-Verify: [http://localhost:8888/actuator/health](http://localhost:8888/actuator/health)
-
-### Step 3: Start Eureka Server
-
-```bash
-cd stationery-management/eureka-server
-mvn spring-boot:run
-```
-
-Wait until you see: `Started EurekaServerApplication on port 8761`
-
-Verify: [http://localhost:8761](http://localhost:8761) (Eureka Dashboard)
-
-### Step 4: Start API Gateway
-
-```bash
-cd stationery-management/api-gateway
-mvn spring-boot:run
-```
-
-Wait until you see: `Started ApiGatewayApplication on port 8080`
-
-### Step 5: Start Auth Service
-
-```bash
-cd stationery-management/auth-service
-mvn spring-boot:run
-```
-
-Wait until you see: `Started AuthServiceApplication on port 8081`
-
-### Step 6: Start Inventory Service
-
-```bash
-cd stationery-management/inventory-service
-mvn spring-boot:run
-```
-
-Wait until you see: `Started InventoryServiceApplication on port 8082`
-
-### Step 7: Start Request Service
-
-```bash
-cd stationery-management/request-service
-mvn spring-boot:run
-```
-
-Wait until you see: `Started RequestServiceApplication on port 8083`
-
-### Step 8: Start React Frontend
-
-```bash
-cd stationery-management/frontend
-npm install
-npm start
-```
-
-The frontend opens at: [http://localhost:3000](http://localhost:3000)
-
-> ** Tip:** Start services in the exact order above. Each service depends on the ones started before it.
-
----
-
-## Running with Docker Compose
-
-### Quick Start
-
-```bash
-cd stationery-management
-
-# Build and start all services
-docker-compose up --build
-
-# Or run in detached mode
-docker-compose up --build -d
-```
-
-### Useful Commands
-
-```bash
-# View running containers
-docker-compose ps
-
-# Follow logs for a specific service
-docker-compose logs -f auth-service
-
-# Stop all services
-docker-compose down
-
-# Stop all services and remove data volumes
-docker-compose down -v
-
-# Rebuild a single service
-docker-compose up --build auth-service
-```
-
-### Verify All Services Are Running
-
-| Service          | Health Check URL                                    |
-|------------------|-----------------------------------------------------|
-| Config Server    | http://localhost:8888/actuator/health                |
-| Eureka Dashboard | http://localhost:8761                                |
-| API Gateway      | http://localhost:8080/actuator/health                |
-| Auth Service     | http://localhost:8081/actuator/health                |
-| Inventory Service| http://localhost:8082/actuator/health                |
-| Request Service  | http://localhost:8083/actuator/health                |
-| Frontend         | http://localhost:3000                                |
+| Tool               | Version  | Notes                                                        |
+|--------------------|----------|--------------------------------------------------------------|
+| **Java JDK**       | 17+      | [Eclipse Temurin](https://adoptium.net/)                     |
+| **Maven**          | 3.9+     | [Maven Downloads](https://maven.apache.org/download.cgi)     |
+| **Node.js**        | 18+      | [Node.js Downloads](https://nodejs.org/)                     |
+| **MySQL**          | 8.0      | Required only for local (non-Docker) setup                   |
+| **Docker**         | 24+      | [Docker Desktop](https://www.docker.com/products/docker-desktop) |
+| **Docker Compose** | 2.20+    | Bundled with Docker Desktop                                  |
+| **Git**            | 2.40+    | [Git Downloads](https://git-scm.com/downloads)               |
 
 ---
 
 ## Service Ports
 
-| Service            | Port  | Description                              |
-|--------------------|-------|------------------------------------------|
-| MySQL              | 3306  | Database server                          |
-| Config Server      | 8888  | Centralized configuration                |
-| Eureka Server      | 8761  | Service discovery & registry             |
-| API Gateway        | 8080  | Single entry point for all API requests  |
-| Auth Service       | 8081  | Authentication & authorization           |
-| Inventory Service  | 8082  | Stationery inventory management          |
-| Request Service    | 8083  | Purchase/issue request processing        |
-| Frontend           | 3000  | React web application (Nginx in Docker)  |
+| Service            | Port     | Host-mapped Port (Docker)         |
+|--------------------|----------|-----------------------------------|
+| MySQL              | 3306     | **3307** (host → container)       |
+| Config Server      | 8888     | 8888                              |
+| Eureka Server      | 8761     | 8761                              |
+| **API Gateway**    | **8090** | 8090 ← All frontend traffic here  |
+| Auth Service       | 8081     | 8081                              |
+| Inventory Service  | 8082     | 8082                              |
+| Request Service    | 8083     | 8083                              |
+| Frontend (Nginx)   | 80       | **3000**                          |
+
+> **Note:** The API Gateway runs on port **8090**, not 8080. The frontend is configured via `REACT_APP_API_URL=http://localhost:8090`.
+
+---
+
+## Running with Docker Compose (Recommended)
+
+Docker Compose handles all startup ordering automatically via health checks.
+
+```bash
+# Clone the repository
+git clone <repo-url>
+cd stationery-managementFinal
+
+# Build and start all 8 services
+docker compose up --build
+
+# Or run in detached mode
+docker compose up --build -d
+
+# View running containers
+docker compose ps
+
+# Follow logs for a specific service
+docker compose logs -f request-service
+
+# Stop all services
+docker compose down
+
+# Stop and remove data volumes (fresh start)
+docker compose down -v
+```
+
+### Startup Order (enforced by health checks)
+
+```
+MySQL → Config Server → Eureka Server → API Gateway + Auth + Inventory → Request Service → Frontend
+```
+
+### Service Health Check URLs
+
+| Service            | Health Check URL                              |
+|--------------------|-----------------------------------------------|
+| Config Server      | http://localhost:8888/actuator/health          |
+| Eureka Dashboard   | http://localhost:8761                          |
+| API Gateway        | http://localhost:8090/actuator/health          |
+| Auth Service       | http://localhost:8081/actuator/health          |
+| Inventory Service  | http://localhost:8082/actuator/health          |
+| Request Service    | http://localhost:8083/actuator/health          |
+| **Frontend**       | **http://localhost:3000**                      |
+
+---
+
+## Running Locally (Without Docker)
+
+### Step 1: Create MySQL Databases
+
+```sql
+mysql -u root -p
+
+CREATE DATABASE IF NOT EXISTS auth_db      CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS inventory_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS request_db   CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+### Step 2: Start services in order
+
+```bash
+# 1. Config Server (port 8888)
+cd config-server && mvn spring-boot:run
+
+# 2. Eureka Server (port 8761)
+cd eureka-server && mvn spring-boot:run
+
+# 3. API Gateway (port 8090)
+cd api-gateway && mvn spring-boot:run
+
+# 4. Auth Service (port 8081)
+cd auth-service && mvn spring-boot:run
+
+# 5. Inventory Service (port 8082)
+cd inventory-service && mvn spring-boot:run
+
+# 6. Request Service (port 8083)
+cd request-service && mvn spring-boot:run
+
+# 7. Frontend (port 3000)
+cd frontend && npm install && npm start
+```
+
+> Wait for each service to log its `Started ...Application on port XXXX` message before starting the next one.
 
 ---
 
 ## API Documentation
 
-All API calls should go through the **API Gateway** at `http://localhost:8080`.
+All API calls must go through the **API Gateway at `http://localhost:8090`**.
 
-### Authentication Service (`/api/auth`)
+### Authentication Service — `/api/auth`
 
-| Method | Endpoint               | Auth Required | Description                          |
-|--------|------------------------|:-------------:|--------------------------------------|
-| POST   | `/api/auth/register`   |             | Register a new user                  |
-| POST   | `/api/auth/login`      |             | Login and receive JWT token          |
-| GET    | `/api/auth/validate`   |             | Validate JWT token                   |
+| Method | Endpoint              | Auth Required | Description                |
+|--------|-----------------------|:-------------:|----------------------------|
+| POST   | `/api/auth/register`  | No            | Register a new user        |
+| POST   | `/api/auth/login`     | No            | Login and receive JWT token|
+| GET    | `/api/auth/validate`  | Bearer Token  | Validate a JWT token       |
 
-#### Register a New User
+#### Register
 
 ```http
 POST /api/auth/register
 Content-Type: application/json
 
 {
-    "username": "john_doe",
-    "password": "SecurePass123!",
-    "email": "john@example.com",
-    "fullName": "John Doe",
-    "role": "EMPLOYEE"
+  "username": "alice",
+  "email": "alice@example.com",
+  "password": "secret123",
+  "role": "STUDENT"
 }
 ```
 
 **Response (201 Created):**
 ```json
 {
-    "id": 1,
-    "username": "john_doe",
-    "email": "john@example.com",
-    "fullName": "John Doe",
-    "role": "EMPLOYEE",
-    "message": "User registered successfully"
+  "token": "eyJhbGciOiJIUzI1NiJ9...",
+  "username": "alice",
+  "role": "STUDENT",
+  "message": "User registered successfully"
 }
 ```
+
+> `role` is optional — defaults to `STUDENT`. Valid values: `ADMIN`, `STUDENT`.
 
 #### Login
 
@@ -285,18 +239,18 @@ POST /api/auth/login
 Content-Type: application/json
 
 {
-    "username": "john_doe",
-    "password": "SecurePass123!"
+  "username": "alice",
+  "password": "secret123"
 }
 ```
 
 **Response (200 OK):**
 ```json
 {
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "type": "Bearer",
-    "username": "john_doe",
-    "role": "EMPLOYEE"
+  "token": "eyJhbGciOiJIUzI1NiJ9...",
+  "username": "alice",
+  "role": "STUDENT",
+  "message": "Login successful"
 }
 ```
 
@@ -307,438 +261,402 @@ GET /api/auth/validate
 Authorization: Bearer <jwt-token>
 ```
 
-**Response (200 OK):**
-```json
-{
-    "valid": true,
-    "username": "john_doe",
-    "role": "EMPLOYEE"
-}
-```
+**Response:** `200 OK` — `"Token is valid"` / `401 Unauthorized`
 
 ---
 
-### Inventory Service (`/api/inventory`)
+### Inventory Service — `/api/inventory`
 
-| Method | Endpoint                            | Auth Required | Roles          | Description                    |
-|--------|-------------------------------------|:-------------:|----------------|--------------------------------|
-| GET    | `/api/inventory`                    |             | ALL            | Get all inventory items        |
-| GET    | `/api/inventory/{id}`               |             | ALL            | Get item by ID                 |
-| POST   | `/api/inventory`                    |             | ADMIN          | Create new inventory item      |
-| PUT    | `/api/inventory/{id}`               |             | ADMIN          | Update inventory item          |
-| DELETE | `/api/inventory/{id}`               |             | ADMIN          | Delete inventory item          |
-| GET    | `/api/inventory/category/{category}`|             | ALL            | Get items by category          |
-| GET    | `/api/inventory/low-stock`          |             | ADMIN, MANAGER | Get low-stock items            |
-| GET    | `/api/inventory/search?name={name}` |             | ALL            | Search items by name           |
+| Method | Endpoint                             | Role           | Description                          |
+|--------|--------------------------------------|----------------|--------------------------------------|
+| GET    | `/api/inventory`                     | Any auth       | Get all items (paginated)            |
+| GET    | `/api/inventory/{id}`                | Any auth       | Get item by ID                       |
+| POST   | `/api/inventory`                     | ADMIN only     | Create new stationery item           |
+| PUT    | `/api/inventory/{id}`                | ADMIN only     | Update item (field-level audit log)  |
+| DELETE | `/api/inventory/{id}`                | ADMIN only     | Delete item                          |
+| GET    | `/api/inventory/category/{category}` | Any auth       | Get items by category (paginated)    |
+| GET    | `/api/inventory/low-stock`           | ADMIN only     | Get items where qty ≤ minimum        |
+| GET    | `/api/inventory/search?keyword=`     | Any auth       | Case-insensitive keyword search      |
+| PUT    | `/api/inventory/{id}/deduct`         | Internal only  | Deduct stock (called by Request Svc) |
 
-#### Create Inventory Item
+**Pagination params (GET /api/inventory):** `?page=0&size=20&sortBy=name`
+
+#### Create Item (ADMIN)
 
 ```http
 POST /api/inventory
-Authorization: Bearer <admin-jwt-token>
+Authorization: Bearer <admin-token>
 Content-Type: application/json
 
 {
-    "name": "Blue Ballpoint Pen",
-    "description": "Standard blue ballpoint pen, medium tip",
-    "category": "PENS",
-    "quantity": 500,
-    "minimumStockLevel": 50,
-    "unitPrice": 1.50,
-    "supplier": "Office Supplies Co."
+  "name": "Blue Ballpoint Pen",
+  "category": "PEN",
+  "unit": "pieces",
+  "availableQuantity": 500,
+  "minimumQuantity": 50,
+  "description": "Standard blue ballpoint pen"
 }
 ```
 
 **Response (201 Created):**
 ```json
 {
-    "id": 1,
-    "name": "Blue Ballpoint Pen",
-    "description": "Standard blue ballpoint pen, medium tip",
-    "category": "PENS",
-    "quantity": 500,
-    "minimumStockLevel": 50,
-    "unitPrice": 1.50,
-    "supplier": "Office Supplies Co.",
-    "createdAt": "2026-06-17T12:00:00",
-    "updatedAt": "2026-06-17T12:00:00"
+  "id": 1,
+  "name": "Blue Ballpoint Pen",
+  "category": "PEN",
+  "unit": "pieces",
+  "availableQuantity": 500,
+  "minimumQuantity": 50,
+  "description": "Standard blue ballpoint pen",
+  "lowStock": false,
+  "createdAt": "2026-06-17T12:00:00",
+  "updatedAt": "2026-06-17T12:00:00"
 }
 ```
 
-#### Get Low-Stock Items
-
-```http
-GET /api/inventory/low-stock
-Authorization: Bearer <admin-jwt-token>
-```
-
-**Response (200 OK):**
-```json
-[
-    {
-        "id": 3,
-        "name": "A4 Paper Ream",
-        "category": "PAPER",
-        "quantity": 10,
-        "minimumStockLevel": 25,
-        "unitPrice": 5.99
-    }
-]
-```
+**Valid categories:** `PAPER`, `PEN`, `PENCIL`, `NOTEBOOK`, `ERASER`, `MARKER`, `FOLDER`, `STAPLER`, `OTHER`
 
 ---
 
-### Request Service (`/api/requests`)
+### Request Service — `/api/requests`
 
-| Method | Endpoint                          | Auth Required | Roles            | Description                    |
-|--------|-----------------------------------|:-------------:|------------------|--------------------------------|
-| POST   | `/api/requests`                   |             | EMPLOYEE         | Create a new request           |
-| GET    | `/api/requests/my`                |             | ALL              | Get current user's requests    |
-| GET    | `/api/requests/{id}`              |             | ALL              | Get request by ID              |
-| GET    | `/api/requests`                   |             | ADMIN, MANAGER   | Get all requests (admin view)  |
-| PUT    | `/api/requests/{id}/approve`      |             | ADMIN, MANAGER   | Approve a pending request      |
-| PUT    | `/api/requests/{id}/reject`       |             | ADMIN, MANAGER   | Reject a pending request       |
+| Method | Endpoint                        | Role       | Description                                        |
+|--------|---------------------------------|------------|----------------------------------------------------|
+| POST   | `/api/requests`                 | STUDENT    | Submit a new request (status = PENDING)            |
+| GET    | `/api/requests/my`              | STUDENT    | View own requests (filter + sort supported)        |
+| GET    | `/api/requests`                 | ADMIN      | View all requests (filter + sort supported)        |
+| GET    | `/api/requests/{id}`            | Any auth   | Get request by database ID                         |
+| GET    | `/api/requests/track/{requestId}` | Any auth | Track request by UUID                              |
+| PUT    | `/api/requests/{id}/approve`    | ADMIN      | Approve (deducts inventory via Feign, atomically)  |
+| PUT    | `/api/requests/{id}/reject`     | ADMIN      | Reject with optional reason                        |
+| PUT    | `/api/requests/{id}/fulfill`    | ADMIN      | Mark an APPROVED request as physically handed over |
 
-#### Create a Stationery Request
+**Query params for list endpoints:** `?status=PENDING&sortBy=date&sortOrder=desc`  
+Valid `sortBy` values: `date`, `status`  
+Valid `status` values: `PENDING`, `APPROVED`, `REJECTED`, `FULFILLED`
+
+#### Submit Request (STUDENT)
 
 ```http
 POST /api/requests
-Authorization: Bearer <employee-jwt-token>
+Authorization: Bearer <student-token>
 Content-Type: application/json
 
 {
-    "itemId": 1,
-    "itemName": "Blue Ballpoint Pen",
-    "quantity": 10,
-    "reason": "Team supplies for Q3",
-    "urgency": "MEDIUM"
+  "items": [
+    { "itemId": 1, "itemName": "Blue Ballpoint Pen", "quantity": 10 },
+    { "itemId": 2, "itemName": "A4 Notebook", "quantity": 3 }
+  ]
 }
 ```
 
 **Response (201 Created):**
 ```json
 {
-    "id": 1,
-    "itemId": 1,
-    "itemName": "Blue Ballpoint Pen",
-    "quantity": 10,
-    "reason": "Team supplies for Q3",
-    "urgency": "MEDIUM",
-    "status": "PENDING",
-    "requestedBy": "john_doe",
-    "requestedAt": "2026-06-17T12:30:00",
-    "approvedBy": null,
-    "approvedAt": null,
-    "rejectionReason": null
+  "id": 1,
+  "requestId": "a3f9b2c1-...",
+  "studentUsername": "alice",
+  "items": [
+    { "itemId": 1, "itemName": "Blue Ballpoint Pen", "quantity": 10 },
+    { "itemId": 2, "itemName": "A4 Notebook", "quantity": 3 }
+  ],
+  "status": "PENDING",
+  "rejectionReason": null,
+  "adminUsername": null,
+  "createdAt": "2026-06-17T12:30:00",
+  "updatedAt": "2026-06-17T12:30:00"
 }
 ```
 
-#### Approve a Request
+> A UUID `requestId` is auto-generated — use `/api/requests/track/{requestId}` for public-facing status tracking.
+
+#### Approve Request (ADMIN)
 
 ```http
 PUT /api/requests/1/approve
-Authorization: Bearer <manager-jwt-token>
-Content-Type: application/json
-
-{
-    "comments": "Approved for Q3 allocation"
-}
+Authorization: Bearer <admin-token>
 ```
 
-**Response (200 OK):**
-```json
-{
-    "id": 1,
-    "status": "APPROVED",
-    "approvedBy": "manager_jane",
-    "approvedAt": "2026-06-17T14:00:00",
-    "comments": "Approved for Q3 allocation"
-}
-```
+Stock is deducted from Inventory Service atomically. If stock is insufficient for any item, the approval is rejected with `400 Bad Request` and the request stays `PENDING`.
 
-#### Reject a Request
+#### Reject Request (ADMIN)
 
 ```http
 PUT /api/requests/1/reject
-Authorization: Bearer <manager-jwt-token>
+Authorization: Bearer <admin-token>
 Content-Type: application/json
 
 {
-    "rejectionReason": "Budget exceeded for this quarter"
+  "rejectionReason": "Budget constraints this quarter"
 }
 ```
 
-**Response (200 OK):**
-```json
-{
-    "id": 1,
-    "status": "REJECTED",
-    "approvedBy": "manager_jane",
-    "approvedAt": "2026-06-17T14:00:00",
-    "rejectionReason": "Budget exceeded for this quarter"
-}
+#### Fulfill Request (ADMIN)
+
+```http
+PUT /api/requests/1/fulfill
+Authorization: Bearer <admin-token>
 ```
 
----
-
-## ️ Database Schema
-
-### Auth DB (`auth_db`)
-
-| Table     | Columns                                                                                    |
-|-----------|--------------------------------------------------------------------------------------------|
-| **users** | `id` (PK), `username` (UNIQUE), `password` (BCrypt), `email`, `full_name`, `role`, `enabled`, `created_at`, `updated_at` |
-
-**Roles Enum:** `ADMIN`, `MANAGER`, `EMPLOYEE`
-
-### Inventory DB (`inventory_db`)
-
-| Table              | Columns                                                                                      |
-|--------------------|----------------------------------------------------------------------------------------------|
-| **inventory_items**| `id` (PK), `name`, `description`, `category`, `quantity`, `minimum_stock_level`, `unit_price`, `supplier`, `created_at`, `updated_at` |
-
-**Categories Enum:** `PENS`, `PAPER`, `NOTEBOOKS`, `FOLDERS`, `STAPLERS`, `ADHESIVES`, `MARKERS`, `ERASERS`, `SCISSORS`, `OTHER`
-
-### Request DB (`request_db`)
-
-| Table              | Columns                                                                                      |
-|--------------------|----------------------------------------------------------------------------------------------|
-| **stationery_requests** | `id` (PK), `item_id` (FK ref), `item_name`, `quantity`, `reason`, `urgency`, `status`, `requested_by`, `requested_at`, `approved_by`, `approved_at`, `rejection_reason`, `comments` |
-
-**Status Enum:** `PENDING`, `APPROVED`, `REJECTED`, `FULFILLED`, `CANCELLED`
-
-**Urgency Enum:** `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`
+Transitions an `APPROVED` request to `FULFILLED` — represents physical handover to the student. Stock was already deducted at approval time.
 
 ---
 
-## Default Credentials
+## Database Schema
 
-| User         | Username       | Password        | Role       |
-|--------------|----------------|-----------------|------------|
-| Admin        | `admin`        | `admin123`      | ADMIN      |
-| Manager      | `manager`      | `manager123`    | MANAGER    |
-| Employee     | `employee`     | `employee123`   | EMPLOYEE   |
+### auth_db
 
-> **️ Warning:** Change default passwords in production! These are seeded by the Auth Service on first startup for development/demo purposes.
+| Table   | Column         | Type          | Notes                              |
+|---------|----------------|---------------|------------------------------------|
+| `users` | `id`           | BIGINT PK     | Auto-increment                     |
+|         | `username`     | VARCHAR UNIQUE| Not null                           |
+|         | `email`        | VARCHAR UNIQUE| Not null, validated with @Email    |
+|         | `password`     | VARCHAR       | BCrypt hash                        |
+|         | `role`         | ENUM STRING   | `ADMIN` or `STUDENT`               |
+|         | `created_at`   | DATETIME      | Set by @PrePersist                 |
+|         | `updated_at`   | DATETIME      | Set by @PreUpdate                  |
 
-**MySQL Credentials (Docker):**
-- **Host:** `localhost:3306`
-- **Username:** `root`
-- **Password:** `root`
+### inventory_db
+
+| Table              | Column               | Type       | Notes                          |
+|--------------------|----------------------|------------|--------------------------------|
+| `stationery_items` | `id`                 | BIGINT PK  | Auto-increment                 |
+|                    | `name`               | VARCHAR    | Not null                       |
+|                    | `category`           | VARCHAR    | Stored as string (e.g., `PEN`) |
+|                    | `unit`               | VARCHAR    | e.g., `pieces`, `reams`        |
+|                    | `available_quantity` | INT        | Not null, ≥ 0                  |
+|                    | `minimum_quantity`   | INT        | Low-stock threshold            |
+|                    | `description`        | TEXT       | Optional                       |
+|                    | `created_at`         | DATETIME   |                                |
+|                    | `updated_at`         | DATETIME   |                                |
+
+### request_db
+
+| Table                  | Column             | Type       | Notes                                   |
+|------------------------|--------------------|------------|-----------------------------------------|
+| `stationery_requests`  | `id`               | BIGINT PK  | Auto-increment (internal ID)            |
+|                        | `request_id`       | VARCHAR UK | UUID, auto-generated in @PrePersist     |
+|                        | `student_username` | VARCHAR    | Sourced from JWT X-User-Name header     |
+|                        | `status`           | ENUM STRING| `PENDING`, `APPROVED`, `REJECTED`, `FULFILLED` |
+|                        | `rejection_reason` | VARCHAR    | Populated on REJECT                     |
+|                        | `admin_username`   | VARCHAR    | Populated on APPROVE/REJECT             |
+|                        | `created_at`       | DATETIME   |                                         |
+|                        | `updated_at`       | DATETIME   |                                         |
+| `request_items`        | `id`               | BIGINT PK  |                                         |
+|                        | `request_id`       | BIGINT FK  | → stationery_requests.id               |
+|                        | `item_id`          | BIGINT     | References inventory_db item (by conv.) |
+|                        | `item_name`        | VARCHAR    | Denormalised snapshot at request time   |
+|                        | `quantity`         | INT        | Min value: 1                            |
 
 ---
 
 ## Project Structure
 
 ```
-stationery-management/
+stationery-managementFinal/
 │
-├── config-server/                  # Spring Cloud Config Server
-│   ├── src/main/java/com/stationery/configserver/
+├── pom.xml                        # Root multi-module Maven POM
+├── docker-compose.yml             # Full-stack orchestration (8 containers)
+├── init.sql                       # DB bootstrap: creates auth_db, inventory_db, request_db
+├── Jenkinsfile                    # CI/CD pipeline
+├── README.md
+│
+├── config-server/                 # Spring Cloud Config Server (:8888)
 │   ├── src/main/resources/
 │   │   ├── application.yml
-│   │   └── configurations/         # Service-specific configs
-│   ├── Dockerfile
-│   └── pom.xml
+│   │   └── configs/               # Per-service config files
+│   │       ├── api-gateway.yml
+│   │       ├── auth-service.yml
+│   │       ├── inventory-service.yml
+│   │       └── request-service.yml
+│   └── Dockerfile
 │
-├── eureka-server/                  # Netflix Eureka Service Registry
-│   ├── src/main/java/com/stationery/eurekaserver/
-│   ├── src/main/resources/
-│   │   └── application.yml
-│   ├── Dockerfile
-│   └── pom.xml
+├── eureka-server/                 # Netflix Eureka Server (:8761)
+│   ├── src/main/resources/application.yml
+│   └── Dockerfile
 │
-├── api-gateway/                    # Spring Cloud API Gateway
+├── api-gateway/                   # Spring Cloud Gateway (:8090)
 │   ├── src/main/java/com/stationery/gateway/
-│   │   ├── config/                 # Route & CORS configuration
-│   │   └── filter/                 # JWT authentication filter
-│   ├── src/main/resources/
-│   │   └── application.yml
-│   ├── Dockerfile
-│   └── pom.xml
+│   │   ├── config/CorsConfig.java
+│   │   └── filter/JwtAuthFilter.java   # GlobalFilter (order = -1)
+│   ├── src/main/resources/application.yml
+│   └── Dockerfile
 │
-├── auth-service/                   # Authentication & Authorization Service
+├── auth-service/                  # Authentication & JWT (:8081)
 │   ├── src/main/java/com/stationery/auth/
-│   │   ├── config/                 # Security configuration
-│   │   ├── controller/             # REST controllers
-│   │   ├── dto/                    # Request/Response DTOs
-│   │   ├── entity/                 # JPA entities
-│   │   ├── repository/             # Spring Data repositories
-│   │   ├── security/               # JWT utility, filters
-│   │   └── service/                # Business logic
-│   ├── src/main/resources/
-│   │   └── application.yml
-│   ├── src/test/                   # Unit & integration tests
-│   ├── Dockerfile
-│   └── pom.xml
+│   │   ├── controller/AuthController.java
+│   │   ├── service/AuthService.java
+│   │   ├── security/
+│   │   │   ├── JwtUtil.java
+│   │   │   ├── SecurityConfig.java
+│   │   │   └── CustomUserDetailsService.java
+│   │   ├── model/User.java
+│   │   ├── model/Role.java             # Enum: ADMIN, STUDENT
+│   │   ├── dto/                        # RegisterRequest, LoginRequest, AuthResponse
+│   │   ├── repository/UserRepository.java
+│   │   └── exception/GlobalExceptionHandler.java
+│   ├── src/test/                       # JUnit 5 + Mockito test suite
+│   └── Dockerfile
 │
-├── inventory-service/              # Stationery Inventory Service
+├── inventory-service/             # Stationery catalogue & stock (:8082)
 │   ├── src/main/java/com/stationery/inventory/
-│   │   ├── controller/             # REST controllers
-│   │   ├── dto/                    # Request/Response DTOs
-│   │   ├── entity/                 # JPA entities
-│   │   ├── exception/              # Custom exceptions & handlers
-│   │   ├── repository/             # Spring Data repositories
-│   │   └── service/                # Business logic
-│   ├── src/main/resources/
-│   │   └── application.yml
-│   ├── src/test/                   # Unit & integration tests
-│   ├── Dockerfile
-│   └── pom.xml
+│   │   ├── controller/InventoryController.java
+│   │   ├── service/InventoryService.java
+│   │   ├── model/StationeryItem.java
+│   │   ├── model/Category.java         # Enum: PAPER, PEN, PENCIL, NOTEBOOK, ...
+│   │   ├── dto/                        # StationeryItemRequest, StationeryItemResponse
+│   │   ├── repository/StationeryItemRepository.java
+│   │   └── exception/GlobalExceptionHandler.java
+│   ├── src/test/                       # JUnit 5 + Mockito test suite
+│   └── Dockerfile
 │
-├── request-service/                # Stationery Request Service
+├── request-service/               # Procurement lifecycle (:8083)
 │   ├── src/main/java/com/stationery/request/
-│   │   ├── client/                 # Feign client for Inventory Service
-│   │   ├── controller/             # REST controllers
-│   │   ├── dto/                    # Request/Response DTOs
-│   │   ├── entity/                 # JPA entities
-│   │   ├── exception/              # Custom exceptions & handlers
-│   │   ├── repository/             # Spring Data repositories
-│   │   └── service/                # Business logic
-│   ├── src/main/resources/
-│   │   └── application.yml
-│   ├── src/test/                   # Unit & integration tests
-│   ├── Dockerfile
-│   └── pom.xml
+│   │   ├── controller/RequestController.java
+│   │   ├── service/RequestService.java
+│   │   ├── client/InventoryClient.java  # Feign client → inventory-service
+│   │   ├── model/StationeryRequest.java
+│   │   ├── model/RequestItem.java
+│   │   ├── model/RequestStatus.java    # Enum: PENDING, APPROVED, REJECTED, FULFILLED
+│   │   ├── dto/                        # CreateRequestDto, RequestItemDto, RequestResponse, ApproveRejectDto
+│   │   ├── repository/RequestRepository.java
+│   │   └── exception/GlobalExceptionHandler.java
+│   ├── src/test/                       # JUnit 5 + Mockito test suite
+│   └── Dockerfile
 │
-├── frontend/                       # React Frontend Application
-│   ├── public/
-│   ├── src/
-│   │   ├── components/             # Reusable UI components
-│   │   ├── pages/                  # Page-level components
-│   │   ├── services/               # API service layer (Axios)
-│   │   ├── context/                # Auth context provider
-│   │   └── App.js                  # Root component & routing
-│   ├── Dockerfile                  # Multi-stage: build + Nginx
-│   ├── nginx.conf                  # Nginx reverse-proxy config
-│   └── package.json
-│
-├── docker-compose.yml              # Full-stack orchestration
-├── init.sql                        # Database initialization script
-├── Jenkinsfile                     # CI/CD pipeline definition
-└── README.md                       # This file
+└── frontend/                      # React SPA (Nginx in Docker → :3000)
+    ├── src/
+    │   ├── api/axiosConfig.js          # Axios instance with JWT interceptors
+    │   ├── context/AuthContext.js      # Global auth state (React Context API)
+    │   ├── components/
+    │   │   ├── Layout.js / .css
+    │   │   ├── Sidebar.js / .css
+    │   │   ├── ProtectedRoute.js       # Role-based route guard
+    │   │   ├── LoadingSpinner.js
+    │   │   └── StatusStamp.js
+    │   ├── pages/
+    │   │   ├── Login.js
+    │   │   ├── Register.js
+    │   │   ├── Dashboard.js
+    │   │   ├── Inventory.js            # Shared — diverges by role
+    │   │   ├── AddItem.js              # ADMIN only
+    │   │   ├── EditItem.js             # ADMIN only
+    │   │   ├── CreateRequest.js        # STUDENT only
+    │   │   ├── MyRequests.js           # STUDENT only
+    │   │   └── ManageRequests.js       # ADMIN only
+    │   └── App.js                      # Router with ProtectedRoute wrappers
+    ├── .env                            # REACT_APP_API_URL=http://localhost:8090
+    ├── Dockerfile                      # Multi-stage: Node build + Nginx serve
+    └── package.json
 ```
 
 ---
 
-## CI/CD Pipeline
-
-The project includes a **Jenkinsfile** defining a complete CI/CD pipeline:
+## CI/CD Pipeline (Jenkinsfile)
 
 ```
-┌──────────┐   ┌─────────────────┐   ┌───────────┐   ┌────────────────┐
-│ Checkout │──▶│ Build Services  │──▶│ Run Tests │──▶│ Build Frontend │
-│          │   │  (Parallel x6)  │   │(Parallel) │   │                │
-└──────────┘   └─────────────────┘   └───────────┘   └────────┬───────┘
-                                                               │
-┌──────────┐   ┌─────────────────┐   ┌──────────────┐         │
-│  Deploy  │◀──│  Docker Push    │◀──│ Docker Build  │◀────────┘
-│          │   │  (Registry)     │   │ (Parallel x7) │
-└──────────┘   └─────────────────┘   └──────────────┘
+┌──────────┐   ┌─────────────────┐   ┌───────────┐   ┌────────────────┐   ┌────────┐
+│ Checkout │──▶│ Build Backend   │──▶│ Run Tests │──▶│ Build Frontend │──▶│ Deploy │
+│  (SCM)   │   │ mvn clean pkg   │   │ mvn test  │   │ npm ci + build │   │ docker │
+│          │   │ -DskipTests     │   │ + JaCoCo  │   │                │   │compose │
+└──────────┘   └─────────────────┘   └───────────┘   └────────────────┘   └────────┘
 ```
 
-### Pipeline Stages
-
-| Stage                  | Description                                                |
-|------------------------|------------------------------------------------------------|
-| **Checkout**           | Pulls latest code from SCM                                 |
-| **Build Backend**      | Parallel Maven builds for all 6 backend services           |
-| **Run Tests**          | Parallel unit/integration tests for business services      |
-| **Build Frontend**     | `npm ci` and `npm run build` for the React application     |
-| **Frontend Tests**     | Runs React test suite                                      |
-| **Docker Build**       | Parallel Docker image builds for all 7 components          |
-| **Docker Push**        | Pushes tagged images to the configured Docker registry     |
-| **Deploy**             | Runs `docker-compose up -d` to deploy the full stack       |
-
-### Jenkins Prerequisites
-
-- **Maven 3.9+** configured as `Maven-3.9` in Global Tool Configuration
-- **JDK 17** configured as `JDK-17` in Global Tool Configuration
-- **Node.js 18** configured as `NodeJS-18` via the NodeJS Jenkins plugin
-- **Docker** and **Docker Compose** installed on the Jenkins agent
-- **Credentials:**
-  - `docker-registry-url` — Your Docker registry URL
-  - `docker-registry-creds` — Username/password credentials for the registry
+| Stage              | Command                                    | Notes                                        |
+|--------------------|--------------------------------------------|----------------------------------------------|
+| **Checkout**       | `checkout scm`                             | Pulls latest from GitHub                     |
+| **Build Backend**  | `mvn clean package -DskipTests`            | Builds all 6 Spring Boot JARs via root POM   |
+| **Run Tests**      | `mvn test`                                 | JUnit 5 + Mockito; JaCoCo coverage generated |
+| **Build Frontend** | `npm ci && npm run build`                  | Reproducible install; production build        |
+| **Deploy**         | `docker compose down && docker compose up -d --build` | Full redeploy              |
 
 ---
 
 ## Running Tests
 
-### Backend Tests
-
 ```bash
-# Run all tests for a specific service
-cd auth-service && mvn test
+# Run tests for all backend modules from root
+mvn test
+
+# Run tests for a specific service
+cd auth-service     && mvn test
 cd inventory-service && mvn test
-cd request-service && mvn test
+cd request-service  && mvn test
 
-# Run tests with coverage report
-cd auth-service && mvn test jacoco:report
-```
-
-### Frontend Tests
-
-```bash
-cd frontend
-
-# Run tests in watch mode
-npm test
-
-# Run tests with coverage
-npm test -- --coverage --watchAll=false
+# Generate JaCoCo HTML coverage report
+mvn test jacoco:report
+# Report: target/site/jacoco/index.html
 ```
 
 ---
 
-## Configuration
+## Configuration & Environment Variables
 
-All service configurations are centralized in the **Config Server**. Key properties can be overridden via environment variables:
+All services load their configuration from **Config Server** at startup. Key variables can be overridden at runtime:
 
-| Environment Variable                        | Default Value                                      | Description              |
-|---------------------------------------------|----------------------------------------------------|--------------------------|
-| `SPRING_DATASOURCE_URL`                     | `jdbc:mysql://localhost:3306/<db_name>`             | JDBC connection URL      |
-| `SPRING_DATASOURCE_USERNAME`                | `root`                                              | Database username        |
-| `SPRING_DATASOURCE_PASSWORD`                | `root`                                              | Database password        |
-| `SPRING_CONFIG_IMPORT`                      | `configserver:http://localhost:8888`                | Config server URL        |
-| `EUREKA_CLIENT_SERVICEURL_DEFAULTZONE`      | `http://localhost:8761/eureka/`                     | Eureka server URL        |
-| `JWT_SECRET`                                | *(configured in auth-service)*                      | JWT signing secret       |
-| `JWT_EXPIRATION`                            | `86400000` (24 hours)                               | JWT expiration in ms     |
+| Variable                                   | Default                                     | Description                  |
+|--------------------------------------------|---------------------------------------------|------------------------------|
+| `SPRING_PROFILES_ACTIVE`                   | `docker` (in Compose), `default` (local)    | Activates dev/prod/test config|
+| `SPRING_CONFIG_IMPORT`                     | `configserver:http://config-server:8888`    | Config Server bootstrap URL  |
+| `SPRING_DATASOURCE_URL`                    | `jdbc:mysql://mysql:3306/<db>`              | Per-service DB connection URL |
+| `SPRING_DATASOURCE_USERNAME`               | `root`                                      | DB username                  |
+| `SPRING_DATASOURCE_PASSWORD`               | `root`                                      | DB password                  |
+| `EUREKA_CLIENT_SERVICEURL_DEFAULTZONE`     | `http://eureka-server:8761/eureka/`         | Eureka server URL            |
+| `JWT_SECRET`                               | `stationeryManagementSecretKey2024...`      | HMAC-SHA256 signing key      |
+| `JWT_EXPIRATION`                           | `86400000` (24 hours)                       | Token expiry in ms           |
+| `REACT_APP_API_URL`                        | `http://localhost:8090`                     | Frontend → Gateway base URL  |
+
+Available config profiles per service: `dev`, `prod`, `test`, `docker`
 
 ---
 
 ## Troubleshooting
 
-### Common Issues
+| Problem                                     | Solution                                                                      |
+|---------------------------------------------|-------------------------------------------------------------------------------|
+| Frontend shows "Network Error"              | Verify API Gateway is running on **port 8090** (not 8080)                     |
+| Service can't connect to Config Server      | Ensure Config Server is healthy before starting other services                |
+| `Connection refused` to MySQL               | Docker: MySQL exposes on host port **3307**, not 3306                         |
+| Eureka dashboard shows no services          | Services take ~30s to register; wait and refresh                              |
+| JWT token rejected at Gateway               | Ensure the same `jwt.secret` is in all service configs                        |
+| Docker services keep restarting             | Check logs: `docker compose logs -f <service-name>`                           |
+| Request approval fails with 400             | Insufficient stock — check inventory `availableQuantity` for requested items  |
+| Port already in use                         | Change host port mapping in `docker-compose.yml`                              |
 
-| Problem                                  | Solution                                                                 |
-|------------------------------------------|--------------------------------------------------------------------------|
-| Service can't connect to Config Server   | Ensure Config Server is running and healthy before starting other services |
-| `Connection refused` to MySQL            | Wait for MySQL healthcheck to pass; verify port 3306 is available         |
-| Eureka dashboard shows no services       | Services take 30s to register; wait and refresh                           |
-| JWT token rejected at API Gateway        | Ensure the same JWT secret is configured across all services              |
-| Frontend shows "Network Error"           | Verify API Gateway is running on port 8080                                |
-| Docker Compose services keep restarting  | Check logs: `docker-compose logs <service-name>`                          |
-| Port already in use                      | Stop conflicting process or change the port mapping in `docker-compose.yml` |
+---
 
-### Viewing Logs
+## PDF Requirement Coverage
 
-```bash
-# Docker Compose logs
-docker-compose logs -f                    # All services
-docker-compose logs -f auth-service       # Specific service
-
-# Local development logs
-# Check the console output of each running service
-```
+| Requirement                                                  | Status     | Notes                                                              |
+|--------------------------------------------------------------|------------|--------------------------------------------------------------------|
+| FR-01: User Registration (email validation, BCrypt, dup. check) | ✅ Done | @Email, BCrypt, existsByUsername/Email checks                    |
+| FR-02: JWT Authentication (24h token)                        | ✅ Done    | 86400000ms expiry; stateless JWT                                   |
+| FR-03: RBAC — ADMIN and STUDENT roles                        | ✅ Done    | Enforced at gateway (JwtAuthFilter) and controller layer           |
+| FR-04: Add Stationery Item (ADMIN, all required fields)      | ✅ Done    | POST /api/inventory with validation                                |
+| FR-05: View Catalogue (students), Low-stock for admins, Pagination | ✅ Done | Paginated GET; low-stock endpoint; category filter             |
+| FR-06: Update Item + Audit Logging                           | ✅ Done    | PUT /api/inventory/{id}; field-level AUDIT: log entries            |
+| FR-07: Submit Request (multi-item, PENDING, UUID + timestamp) | ✅ Done  | POST /api/requests; UUID requestId; items list                     |
+| FR-08: View My Requests (filter by status, sort by date/status) | ✅ Done | GET /api/requests/my with full filter + sort params             |
+| FR-09: Approve/Reject + stock deduction + rejection reason   | ✅ Done    | PUT approve/reject/fulfill; Feign deduction; reason field          |
+| Spring Cloud Gateway                                         | ✅ Done    | api-gateway with JwtAuthFilter                                     |
+| Eureka Service Registry                                      | ✅ Done    | eureka-server; all services register                               |
+| Config Server                                                | ✅ Done    | config-server; native classpath profiles                           |
+| Feign inter-service communication                            | ✅ Done    | InventoryClient in request-service                                 |
+| Spring Data JPA + Hibernate                                  | ✅ Done    | All three domain services                                          |
+| JUnit + Mockito unit tests                                   | ✅ Done    | Multi-layer tests in all 3 services                                |
+| JaCoCo coverage                                              | ✅ Done    | Configured in all service pom.xml files                            |
+| Jenkins CI/CD Pipeline                                       | ✅ Done    | Jenkinsfile at root                                                |
+| Dockerfile per microservice                                  | ✅ Done    | All 7 components (6 services + frontend)                           |
+| Docker Compose                                               | ✅ Done    | docker-compose.yml with health-checked startup                     |
+| Dev / Test / Prod environment configs                        | ✅ Done    | application-dev/prod/test.yml per service                          |
+| React Frontend                                               | ✅ Done    | Role-adaptive SPA; ADMIN and STUDENT flows                         |
+| Input validation + exception handling                        | ✅ Done    | @Valid, GlobalExceptionHandler, structured ErrorResponse           |
+| Refresh token support                                        | ❌ Not implemented | Marked optional in PDF; JWT expiry is the only mechanism  |
+| SonarQube integration                                        | ❌ Not implemented | Marked optional in PDF                                     |
+| Notifications to student on approve/reject                   | ❌ Not implemented | Marked optional in PDF                                     |
 
 ---
 
 ## License
 
-This project is developed for educational and internal organizational use.
-
----
-
-## Author
-
-**Stationery Management System** — A Spring Boot Microservices Capstone Project
+This project is developed as a Java Spring Boot Microservices Capstone Project.

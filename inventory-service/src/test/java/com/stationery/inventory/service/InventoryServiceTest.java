@@ -33,6 +33,9 @@ class InventoryServiceTest {
     @Mock
     private StationeryItemRepository inventoryRepository;
 
+    @Mock
+private AuditService auditService;
+
     @InjectMocks
     private InventoryService inventoryService;
 
@@ -66,7 +69,7 @@ class InventoryServiceTest {
     void testCreateItemSuccess() {
         when(inventoryRepository.save(any(StationeryItem.class))).thenReturn(testItem);
 
-        StationeryItemResponse response = inventoryService.createItem(itemRequest);
+        StationeryItemResponse response = inventoryService.createItem(itemRequest,"admin");
 
         assertNotNull(response);
         assertEquals("Notebook", response.getName());
@@ -142,7 +145,7 @@ void testGetItemsByCategorySuccess() {
                 .minimumQuantity(20)
                 .build();
 
-        StationeryItemResponse response = inventoryService.updateItem(1L, updateRequest);
+        StationeryItemResponse response = inventoryService.updateItem(1L, updateRequest, "admin");
 
         assertNotNull(response);
         verify(inventoryRepository).findById(1L);
@@ -155,7 +158,7 @@ void testGetItemsByCategorySuccess() {
         when(inventoryRepository.findById(1L)).thenReturn(Optional.of(testItem));
         doNothing().when(inventoryRepository).delete(any(StationeryItem.class));
 
-        assertDoesNotThrow(() -> inventoryService.deleteItem(1L));
+        assertDoesNotThrow(() -> inventoryService.deleteItem(1L, "admin"));
         verify(inventoryRepository).findById(1L);
         verify(inventoryRepository).delete(any(StationeryItem.class));
     }

@@ -141,9 +141,32 @@ class RequestControllerTest {
     void getRequestById_found() throws Exception {
         when(requestService.getRequestById(1L)).thenReturn(sampleResponse);
 
-        mockMvc.perform(get("/api/requests/1"))
+        mockMvc.perform(get("/api/requests/1")
+                        .header("X-User-Name", "student1")
+                        .header("X-User-Role", "STUDENT"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1));
+    }
+
+    @Test
+    void getRequestById_adminCanAccessAnyRequest() throws Exception {
+        when(requestService.getRequestById(1L)).thenReturn(sampleResponse);
+
+        mockMvc.perform(get("/api/requests/1")
+                        .header("X-User-Name", "admin1")
+                        .header("X-User-Role", "ADMIN"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void getRequestById_otherStudentIsForbidden() throws Exception {
+        when(requestService.getRequestById(1L)).thenReturn(sampleResponse);
+
+        mockMvc.perform(get("/api/requests/1")
+                        .header("X-User-Name", "student2")
+                        .header("X-User-Role", "STUDENT"))
+                .andExpect(status().isForbidden())
+                .andExpect(content().string(""));
     }
 
     // ===== GET /api/requests/track/{requestId} =====
@@ -152,9 +175,32 @@ class RequestControllerTest {
     void getRequestByRequestId_found() throws Exception {
         when(requestService.getRequestByRequestId("uuid-1234")).thenReturn(sampleResponse);
 
-        mockMvc.perform(get("/api/requests/track/uuid-1234"))
+        mockMvc.perform(get("/api/requests/track/uuid-1234")
+                        .header("X-User-Name", "student1")
+                        .header("X-User-Role", "STUDENT"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.requestId").value("uuid-1234"));
+    }
+
+    @Test
+    void getRequestByRequestId_adminCanAccessAnyRequest() throws Exception {
+        when(requestService.getRequestByRequestId("uuid-1234")).thenReturn(sampleResponse);
+
+        mockMvc.perform(get("/api/requests/track/uuid-1234")
+                        .header("X-User-Name", "admin1")
+                        .header("X-User-Role", "ADMIN"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void getRequestByRequestId_otherStudentIsForbidden() throws Exception {
+        when(requestService.getRequestByRequestId("uuid-1234")).thenReturn(sampleResponse);
+
+        mockMvc.perform(get("/api/requests/track/uuid-1234")
+                        .header("X-User-Name", "student2")
+                        .header("X-User-Role", "STUDENT"))
+                .andExpect(status().isForbidden())
+                .andExpect(content().string(""));
     }
 
     // ===== GET /api/requests (Admin) =====
@@ -274,10 +320,11 @@ class RequestControllerTest {
                 .items(Collections.emptyList()).status("FULFILLED")
                 .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).build();
 
-        when(requestService.fulfillRequest(1L)).thenReturn(fulfilledResponse);
+        when(requestService.fulfillRequest(1L, "admin")).thenReturn(fulfilledResponse);
 
         mockMvc.perform(put("/api/requests/1/fulfill")
-                        .header("X-User-Role", "ADMIN"))
+        .header("X-User-Name", "admin")
+        .header("X-User-Role", "ADMIN"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("FULFILLED"));
     }

@@ -24,9 +24,11 @@ public class InventoryService {
     private static final Logger log = LoggerFactory.getLogger(InventoryService.class);
 
     private final StationeryItemRepository stationeryItemRepository;
+    private final AuditService auditService;
 
-    public InventoryService(StationeryItemRepository stationeryItemRepository) {
+    public InventoryService(StationeryItemRepository stationeryItemRepository, AuditService auditService) {
         this.stationeryItemRepository = stationeryItemRepository;
+        this.auditService = auditService;
     }
 
     /**
@@ -37,7 +39,7 @@ public class InventoryService {
      * @return the created item response
      */
     @Transactional
-    public StationeryItemResponse createItem(StationeryItemRequest request) {
+    public StationeryItemResponse createItem(StationeryItemRequest request, String username) {
         log.info("AUDIT: Creating new stationery item with name: '{}'", request.getName());
 
         StationeryItem item = StationeryItem.builder()
@@ -52,6 +54,8 @@ public class InventoryService {
         StationeryItem savedItem = stationeryItemRepository.save(item);
         log.info("AUDIT: Successfully created stationery item with ID: {}, name: '{}'",
                 savedItem.getId(), savedItem.getName());
+        auditService.record(username, "ITEM_CREATED", "INVENTORY_ITEM", savedItem.getId().toString(),
+                "Created item '" + savedItem.getName() + "'");
 
         return mapToResponse(savedItem);
     }
@@ -120,7 +124,7 @@ public class InventoryService {
      * @throws ResourceNotFoundException if the item is not found
      */
     @Transactional
-    public StationeryItemResponse updateItem(Long id, StationeryItemRequest request) {
+    public StationeryItemResponse updateItem(Long id, StationeryItemRequest request, String username) {
         log.info("AUDIT: Updating stationery item with ID: {}", id);
 
         StationeryItem existingItem = stationeryItemRepository.findById(id)
@@ -154,6 +158,8 @@ public class InventoryService {
 
         StationeryItem updatedItem = stationeryItemRepository.save(existingItem);
         log.info("AUDIT: Successfully updated stationery item with ID: {}", id);
+        auditService.record(username, "ITEM_UPDATED", "INVENTORY_ITEM", id.toString(),
+                "Updated item '" + updatedItem.getName() + "'");
 
         return mapToResponse(updatedItem);
     }
@@ -166,7 +172,7 @@ public class InventoryService {
      * @throws ResourceNotFoundException if the item is not found
      */
     @Transactional
-    public void deleteItem(Long id) {
+    public void deleteItem(Long id, String username) {
         log.info("AUDIT: Attempting to delete stationery item with ID: {}", id);
 
         StationeryItem item = stationeryItemRepository.findById(id)
@@ -176,6 +182,8 @@ public class InventoryService {
         stationeryItemRepository.delete(item);
         log.info("AUDIT: Successfully deleted stationery item with ID: {}, name: '{}'",
                 id, item.getName());
+        auditService.record(username, "ITEM_DELETED", "INVENTORY_ITEM", id.toString(),
+                "Deleted item '" + item.getName() + "'");
     }
 
     /**
@@ -229,6 +237,8 @@ public class InventoryService {
 
         log.info("AUDIT: Successfully deducted {} from item ID: {}. New available quantity: {}",
                 quantity, itemId, item.getAvailableQuantity());
+        auditService.record("REQUEST_SERVICE", "STOCK_DEDUCTED", "INVENTORY_ITEM", itemId.toString(),
+                "Deducted " + quantity + "; remaining quantity: " + item.getAvailableQuantity());
 
         return true;
     }

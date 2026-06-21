@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 
+import com.stationery.inventory.model.AuditRecord;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class StationeryItemTest {
@@ -193,5 +195,44 @@ class CategoryTest {
     @Test
     void categoryEnum_totalCount_isNine() {
         assertThat(Category.values()).hasSize(9);
+    }
+}
+
+class AuditRecordTest {
+
+    @Test
+    void constructor_setsFieldsCorrectly() {
+        AuditRecord record = new AuditRecord(
+                "admin",
+                "DELETE_ITEM",
+                "INVENTORY",
+                "1",
+                "Deleted inventory item"
+        );
+
+        assertThat(record.getUsername()).isEqualTo("admin");
+        assertThat(record.getAction()).isEqualTo("DELETE_ITEM");
+        assertThat(record.getEntityType()).isEqualTo("INVENTORY");
+        assertThat(record.getEntityId()).isEqualTo("1");
+        assertThat(record.getDetails()).isEqualTo("Deleted inventory item");
+    }
+
+    @Test
+    void onCreate_setsCreatedAt() throws Exception {
+        AuditRecord record = new AuditRecord(
+                "admin",
+                "ADD_NEW_ITEM",
+                "INVENTORY",
+                "2",
+                "Created inventory item"
+        );
+
+        java.lang.reflect.Method method =
+                AuditRecord.class.getDeclaredMethod("onCreate");
+
+        method.setAccessible(true);
+        method.invoke(record);
+
+        assertThat(record.getCreatedAt()).isNotNull();
     }
 }

@@ -82,7 +82,7 @@ class InventoryControllerTest {
 
     @Test
     void createItem_asAdmin_returns201() throws Exception {
-        when(inventoryService.createItem(any(StationeryItemRequest.class))).thenReturn(sampleResponse);
+        when(inventoryService.createItem(any(StationeryItemRequest.class), anyString())).thenReturn(sampleResponse);
 
         mockMvc.perform(post("/api/inventory")
                         .header("X-User-Role", "ADMIN")
@@ -118,7 +118,7 @@ class InventoryControllerTest {
 
     @Test
     void createItem_adminRoleCaseInsensitive_returns201() throws Exception {
-        when(inventoryService.createItem(any(StationeryItemRequest.class))).thenReturn(sampleResponse);
+        when(inventoryService.createItem(any(StationeryItemRequest.class), anyString())).thenReturn(sampleResponse);
 
         mockMvc.perform(post("/api/inventory")
                         .header("X-User-Role", "admin")
@@ -216,7 +216,7 @@ class InventoryControllerTest {
 
     @Test
     void updateItem_asAdmin_returns200() throws Exception {
-        when(inventoryService.updateItem(eq(1L), any(StationeryItemRequest.class)))
+        when(inventoryService.updateItem(eq(1L), any(StationeryItemRequest.class), anyString()))
                 .thenReturn(sampleResponse);
 
         mockMvc.perform(put("/api/inventory/1")
@@ -251,7 +251,7 @@ class InventoryControllerTest {
 
     @Test
     void updateItem_itemNotFound_returns404() throws Exception {
-        when(inventoryService.updateItem(eq(99L), any(StationeryItemRequest.class)))
+        when(inventoryService.updateItem(eq(99L), any(StationeryItemRequest.class), anyString()))
                 .thenThrow(new ResourceNotFoundException("Item not found with id: 99"));
 
         mockMvc.perform(put("/api/inventory/99")
@@ -265,14 +265,14 @@ class InventoryControllerTest {
 
     @Test
     void deleteItem_asAdmin_returns204() throws Exception {
-        doNothing().when(inventoryService).deleteItem(1L);
+        doNothing().when(inventoryService).deleteItem(eq(1L), anyString());
 
         mockMvc.perform(delete("/api/inventory/1")
                         .header("X-User-Role", "ADMIN")
                         .header("X-User-Name", "admin"))
                 .andExpect(status().isNoContent());
 
-        verify(inventoryService).deleteItem(1L);
+        verify(inventoryService).deleteItem(eq(1L), anyString());
     }
 
     @Test
@@ -295,7 +295,7 @@ class InventoryControllerTest {
     @Test
     void deleteItem_itemNotFound_returns404() throws Exception {
         doThrow(new ResourceNotFoundException("Item not found with id: 99"))
-                .when(inventoryService).deleteItem(99L);
+                .when(inventoryService).deleteItem(eq(99L), anyString());
 
         mockMvc.perform(delete("/api/inventory/99")
                         .header("X-User-Role", "ADMIN"))
